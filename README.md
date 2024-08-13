@@ -11,4 +11,4 @@ Certain proprietary files and dependent libraries have been removed
 and are still available from Tech-X.
 
 Selected publication:
-![alt text](http://url/to/img.png)
+![Selected publication](./ornl_pub.png)
