@@ -13,4 +13,5 @@ and are still available from Tech-X.
 For a list of PolySwift++ papers see Publications section on https://www.linkedin.com/in/scottwsides
 
 Selected publication:
+
 <img src="./ornl_pub.png" width="800">
