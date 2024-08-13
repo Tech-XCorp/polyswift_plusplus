@@ -10,5 +10,7 @@ computing.
 Certain proprietary files and dependent libraries have been removed
 and are still available from Tech-X.
 
+For a list of PolySwift++ papers see Publications section on https://www.linkedin.com/in/scottwsides
+
 Selected publication:
-![Selected publication](./ornl_pub.png)
+<img src="./ornl_pub.png" width="100">
