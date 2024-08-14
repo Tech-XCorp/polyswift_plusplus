@@ -1,0 +1,50 @@
+######################################################################
+#
+# @brief: Setup blocks for polydisperse models
+#
+# @version $Id: polyDisperse.mac 15537 2010-10-21 18:02:27Z swsides $
+#
+# Copyright &copy; 2012-2020, Tech-X Corporation, Boulder, CO.
+# All rights reserved.
+#
+######################################################################
+
+# @brief Contains methods to create multiple blocks, using single
+#              blocks within the input file as 'template'
+#
+# @param psfield name of the physical field to copy
+# @param nOrder  order of the quadrature method
+
+<macro createQuadraturePhysFields(psfield, nOrder)>
+
+  # -----------------------------------------------------
+  # Creates name prefix (eg styrDens --> styrDens_ng_)
+  # Note: this convention is assumed elsewhere in code
+  # -----------------------------------------------------
+  $ QUADPREFIX = concatenate_string(psfield, "_ng_")
+
+  $ i=0
+  $ while i<nOrder
+    $ PFQUADNAME = concatenate_string(QUADPREFIX,i)
+
+    <PhysField PFQUADNAME>
+       kind = monomerDens
+       type = fieldD3R
+    </PhysField>
+
+  $ i=i+1
+  $ endwhile
+
+</macro>
+
+# =====================================================================
+# utilities
+
+<macro appendListItem_ddld(u,newItem)>
+  `u[:] + [newItem]`
+</macro>
+
+<macro concatenate_string(aString,bString)>
+  $ partString = "$aString$
+  partString$bString$"
+</macro>

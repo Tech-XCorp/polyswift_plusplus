@@ -1,0 +1,230 @@
+######################################################################
+#
+# File:         nanoPtcl
+#
+# Purpose:      Hybrid-SCFT test with confinement
+#
+# Define variables in lines starting with '$' for later use
+######################################################################
+
+###################################
+#  Grid parameters                #
+#    Num-cells in sim  [NX NY NZ] #
+#    Cell length in Rg [DX DY DZ] #
+###################################
+$ NX = 128
+$ NY = 128 # with wall .... polymer section is 64
+# For now this switches 2d-->3d
+$ NZ = 1
+
+$ DX = 0.05
+$ DY = 0.05
+$ DZ = 0.05
+$ DS = 0.05
+
+$ PTCLRADIUS_SIZE = 0.20 # in units of Rg
+$ PTCLRADIUS = int(PTCLRADIUS_SIZE/DX)
+
+$ PTCLWIDTH_SIZE = 0.10 # in units of Rg
+$ PTCLWIDTH = PTCLWIDTH_SIZE/DX
+
+############################
+#    Debug print flags     #
+############################
+$ DBUPDATER     = "'off'"
+$ DBINTERACTION = "'off'"
+$ DBEFFHAMIL    = "'off'"
+$ DBPOLYMER     = "'off'"
+$ DBSOLVENT     = "'off'"
+$ DBBLOCK       = "'off'"
+$ DBPTCL        = "'off'"
+$ DBBNDRY       = "'off'"
+$ DBPHYSFIELD   = "'off'"
+$ DBDEFAULT     = "'off'"
+
+##########################################################
+#            Domain parameters and defaults              #
+#                                                        #
+# Import of defaults.pre contains block descriptions     #
+# for singleton, mandatory, default blocks               #
+# (these are same for all current sims)                  #
+##########################################################
+
+nsteps = 10000           # timesteps in relaxation algo.
+randomSeed = 2235       # If not set, seed uses default
+dumpPeriodicity = 200   # dump period
+printdebug = off        # Switch for certain debug msgs
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+################################################
+# A Nanoparticle object
+################################################
+$ LI_EDGE = float(0.4 * NX)
+$ RI_EDGE = float(NX - LI_EDGE)
+
+# Defines spherical inclusion
+<Boundary sphereParticle1>
+  kind = interactingSphere
+  fftKind = fftWObj
+  printdebug = DBBNDRY
+  maxNumPtcls = 10
+  updateMovePeriod = 500
+  updateAddPeriod = 500
+  tstepBeforeFirstAdd = 1000
+  ptclNoiseFactor = 1.0
+  interfaceWidth = PTCLWIDTH
+  scaleForceFactor = 1.0
+  radius = PTCLRADIUS
+  maxdr = 0.25
+  boundaryfield = totParticle
+  bndryFieldThreshold = 0.0005
+
+  <STFunc insertRegion>
+    kind = pyfunc
+    name = stripeRegionsX
+    paramKeys = [ leftedge rightedge ]
+    paramValues = [ LI_EDGE  RI_EDGE ]
+  </STFunc>
+
+</Boundary>
+
+##########################################
+# This physical fields represent density 
+#  regions (particles)
+#  with a material that (interacts) with
+#  ethylene monomers in the bulk.
+# They will NOT be fields
+#  that are updated in the
+#  EffHamil-Updater section
+
+<PhysField totParticle>
+  kind = monomerDens
+  onlyFirstDump = off
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+</PhysField>
+################################################
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#   (for now) the update methods
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  printdebug = DBEFFHAMIL
+
+  updaterSequence = [wAwB]
+
+  <Updater wAwB>
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.20 0.10]
+    noise = 0.005
+    printdebug = DBUPDATER
+    updatefields = [totStyrDens totEthyDens]
+    interactions = [StyrEthy particleEthy particleStyr]
+  </Updater>
+
+  # Interactions can be separate from Any Updater/etc
+  # blocks or type of eff-Hamiltonian
+  <Interaction StyrEthy>
+    kind = flory
+    scfields = [totStyrDens totEthyDens]
+    printdebug = DBINTERACTION
+
+    <STFunc chiramp>
+      kind = chiCutExpression
+      chi_lower = 0.09
+      chi_upper = 0.14
+      chi = 0.09 + 0.001*t
+    </STFunc>
+
+  </Interaction>
+
+  # #############################
+  # Interactions for particles
+  # #############################
+  <Interaction particleEthy>
+    kind = floryWall
+    chi = 0.08
+    scfields = [totParticle totEthyDens]
+    wallField = totParticle
+    printdebug = DBINTERACTION
+  </Interaction>
+
+  <Interaction particleStyr>
+    kind = floryWall
+    chi = -0.08
+    scfields = [totParticle totStyrDens]
+    wallField = totParticle
+    printdebug = DBINTERACTION
+  </Interaction>
+
+</EffHamil>
+
+#######################################################
+# Physical "observable" fields
+#######################################################
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+</PhysField>
+
+#########################################################################
+#  A Polymer primarily describes chain architecture...namely
+#  a collection of Block-s (eg homopolymer, diblock, triblock,
+#  n-arm star, n-arm branched etc).
+#
+#  The length of a first polymer listed will be used to scale the theory
+#########################################################################
+<Polymer diblock1>
+
+  kind = blockCopolymer
+  volfrac = 1.0
+  length = 100
+  printdebug = DBPOLYMER
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    ds = DS
+    lengthfrac = 0.50
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+    printdebug = DBBLOCK
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+    ds = DS
+    lengthfrac = 0.50
+    headjoined = [blockA]
+    tailjoined = [freeEnd]
+    printdebug = DBBLOCK
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+ kind = freeEnergy
+ updatePeriodicity = 10
+ updaterName = wAwB
+</History>

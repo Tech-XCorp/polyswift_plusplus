@@ -1,0 +1,235 @@
+/**
+ * vim: set expandtab filetype=cpp :
+ *
+ * @file    config-cmake.h.in
+ *
+ * @brief   Documentation goes here.
+ *
+ * @version $Id: config-cmake.h.in 2147 2020-08-04 16:00:35Z smillie $
+ *
+ * Copyright &copy; 2011-2020, Tech-X Corporation, Boulder, CO.
+ * All rights reserved.
+ */
+
+/* All variables */
+
+/* Whether using cmake */
+#cmakedefine HAVE_CMAKE
+
+/* The host name */
+#cmakedefine HOSTNAME "${HOSTNAME}"
+
+/* The host type */
+#cmakedefine HOSTTYPE "${HOSTTYPE}"
+
+/* "C Compiler" */
+#cmakedefine C_COMPILER "${C_COMPILER}"
+
+/* "C Compiler ID" */
+#cmakedefine C_COMPILER_ID "${C_COMPILER_ID}"
+
+/* "C++ Compiler" */
+#cmakedefine CXX "${CXX}"
+
+/* "C++ flags" */
+#cmakedefine CXXFLAGS "${CXXFLAGS}"
+
+/* "C++ Optimization flags" */
+#cmakedefine CXX_OPTIFLAGS "${CXX_OPTIFLAGS}"
+
+/* "C++ Compiler version" */
+#cmakedefine CXX_VERSION "${CXX_VERSION}"
+
+/* "Whether the C++ compiler allows generally declared templated static variables" */
+#cmakedefine HAVE_GENERALLY_DECLARED_STATICS
+
+/* Whether to separate instantiations -- for correct compilation on xl */
+#cmakedefine SEPARATE_INSTANTIATIONS
+
+/* Define when the C++ compiler does not understand std::abs with double arg */
+#cmakedefine NOT_HAVE_STD_ABS_DOUBLE
+
+/* "The Source Directory" */
+#cmakedefine ABS_TOP_SRCDIR "${ABS_TOP_SRCDIR}"
+
+/* Define to 1 if you have the <sstream> header file. */
+#cmakedefine HAVE_SSTREAM
+
+/* Define if you have the <iostream> header file. */
+#cmakedefine HAVE_IOSTREAM
+
+/* Define if compiling for MPI */
+#cmakedefine HAVE_MPI
+
+/* whether the HDF5 library is present */
+#cmakedefine HAVE_HDF5
+
+/* Whether to use the HDF5-1.6 interfaces */
+#cmakedefine H5_USE_16_API
+
+/* whether the new 1.6.4 H5Sselect_hyperslab interface is in use */
+#cmakedefine OLD_H5S_SELECT_HYPERSLAB_IFC
+
+/* Define if Python found on system */
+#cmakedefine HAVE_PYTHON
+
+/* Define if license manager present. */
+#cmakedefine HAVE_SECURITY
+
+/* "config subdir subversion revision" */
+#cmakedefine CONFIG_REV "${CONFIG_REV}"
+
+/* "top src dir" */
+#cmakedefine TOP_SRCDIR "${TOP_SRCDIR}"
+
+/* Define whether UINT_IS_SIZE_T is true */
+#cmakedefine UINT_IS_SIZE_T
+
+/* Define whether INT_IS_SSIZE_T is true */
+#cmakedefine INT_IS_SSIZE_T
+
+/* Whether time and sys/time are compatible  */
+// #ifndef TIME_WITH_SYS_TIME
+// #cmakedefine TIME_WITH_SYS_TIME
+// #endif
+
+/* Whether struct tm is in sys/time */
+#cmakedefine TM_IN_SYS_TIME
+
+/* Define whether system has timeval (for Windows) */
+#cmakedefine _TIMEVAL_DEFINED
+
+/* Define whether to use math defines (for Windows) */
+#cmakedefine _USE_MATH_DEFINES
+
+/* Define to compile NDIM = 1 */
+#cmakedefine NDIM1
+
+/* Define to compile NDIM = 2 */
+#cmakedefine NDIM2
+
+/* Define to compile NDIM = 3 */
+#cmakedefine NDIM3
+
+/* Maximum value of compiled NDIM */
+#cmakedefine NDIMMAX ${NDIMMAX}
+
+/* whether Boost is present */
+#cmakedefine HAVE_BOOST
+
+/* ----------- From chompst ------------ */
+
+/* To add an underscore to fortran symbols. */
+#cmakedefine CH_FORT_UNDERSCORE
+
+/* Set user code language */
+#cmakedefine CH_LANG_CC
+
+/* To use MPI */
+#cmakedefine CH_MPI
+
+/* Petsc was provided */
+#cmakedefine HAVE_PETSC
+
+/* Chompst was provided */
+#cmakedefine HAVE_CHOMPST
+
+/* Set the dimensionality of the problem */
+#cmakedefine CH_SPACEDIM ${CH_SPACEDIM}
+
+/* Use Chombo embedded boundaries */
+#cmakedefine USE_EB ${USE_EB}
+
+/* Double precision is used. */
+#cmakedefine CH_USE_DOUBLE
+
+/* To use HDF5 */
+#cmakedefine CH_USE_HDF5
+
+/* Not sure why this is needed. */
+#cmakedefine CH_USE_SETVAL
+
+/* Define to dummy `main' function (if any) required to link to the Fortran
+   libraries. */
+#cmakedefine FC_DUMMY_MAIN
+
+/* Define if F77 and FC dummy `main' functions are identical. */
+#cmakedefine FC_DUMMY_MAIN_EQ_F77
+
+// New FindSciHDf5 no longer same and FC_FUNC not set when NOFORTRAN set to TRUE
+/* Define to a macro mangling the given C identifier (in lower and upper
+   case), which must not contain underscores, for linking with Fortran. */
+// #define @FC_FUNC@
+
+/* As FC_FUNC, but for C identifiers containing underscores. */
+// #define @FC_FUNC_@
+
+/* Define if blas was found */
+#cmakedefine HAVE_BLAS_LIB ${HAVE_BLAS_LIB}
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#cmakedefine HAVE_INTTYPES_H
+
+/* Define if lapack was found */
+#cmakedefine HAVE_LAPACK_LIB ${HAVE_LAPACK_LIB}
+
+/* Define to 1 if you have the <memory.h> header file. */
+#cmakedefine HAVE_MEMORY_H
+
+/* muParser was provided */
+#cmakedefine HAVE_MUPARSER
+
+/* PaToH was provided */
+#cmakedefine HAVE_PATOH
+
+/* Define to 1 if you have the <stdint.h> header file. */
+// #ifndef HAVE_STDINT_H
+// #cmakedefine HAVE_STDINT_H
+// #endif
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#cmakedefine HAVE_STDLIB_H
+
+/* Define to 1 if you have the <strings.h> header file. */
+#cmakedefine HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#cmakedefine HAVE_STRING_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#cmakedefine HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+// #ifndef HAVE_SYS_TYPES_H
+// #cmakedefine HAVE_SYS_TYPES_H
+// #endif
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#cmakedefine HAVE_UNISTD_H
+
+/* Name of package */
+#cmakedefine PACKAGE
+
+/* Define to the address where bug reports for this package should be sent. */
+#cmakedefine PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#cmakedefine PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#cmakedefine PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#cmakedefine PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#cmakedefine PACKAGE_URL
+
+/* Define to the version of this package. */
+#cmakedefine PACKAGE_VERSION
+
+/* Define to 1 if you have the ANSI C header files. */
+#cmakedefine STDC_HEADERS
+
+/* Version number of package */
+#cmakedefine CHOMPST_VERSION

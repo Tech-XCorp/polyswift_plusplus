@@ -1,0 +1,93 @@
+*******************************************
+PSimBase
+*******************************************
+psbase/PsFieldMakerMap.cpp:       PsFieldBase<float> >("fieldF1R"));
+psbase/PsFieldMakerMap.cpp:       PsFieldBase<float> >("fieldF2R"));
+psbase/PsFieldMakerMap.cpp:             PsFieldBase<float> >("fieldF3R"));
+psbase/PsFieldMakerMap.cpp:       PsFieldBase<float> >("fieldF4R"));
+psbase/PsFieldMakerMap.cpp:       PsFieldBase<float> >("fieldF5R"));
+psbase/PsFieldMakerMap.cpp:       PsFieldBase<float> >("fieldF6R"));
+psbase/PsFieldMakerMap.cpp:       PsFieldBase<double> >("fieldD1R"));
+psbase/PsFieldMakerMap.cpp:       PsFieldBase<double> >("fieldD2R"));
+psbase/PsFieldMakerMap.cpp:       PsFieldBase<double> >("fieldD3R"));
+psbase/PsFieldMakerMap.cpp:       PsFieldBase<double> >("fieldD4R"));
+psbase/PsFieldMakerMap.cpp:       PsFieldBase<double> >("fieldD5R"));
+psbase/PsFieldMakerMap.cpp:       PsFieldBase<double>>("fieldD6R"));
+
+pscomm/PsCommMakerMap.cpp:             PsCommBase<FLOATTYPE, NDIM> >("mpiComm"));
+
+psfft/PsFFTMakerMap.cpp:                PsFFTBase<FLOATTYPE, NDIM> >("normalfftw"));
+psfft/PsFFTMakerMap.cpp:                PsFFTBase<FLOATTYPE, NDIM> >("transposefftw"));
+psgrid/PsGridMakerMap.cpp:               PsGridBase<FLOATTYPE, NDIM> >("uniCartGrid"));
+pshist/PsHistoryMakerMap.cpp:            PsHistoryBase<FLOATTYPE, NDIM> >("freeEnergy"));
+psdecomp/PsDecompMakerMap.cpp:      PsDecompBase<FLOATTYPE, NDIM> >("regular"));
+psdecomp/PsDecompMakerMap.cpp:      PsDecompBase<FLOATTYPE, NDIM> >("fftw"));
+pseffhamil/PsEffHamilMakerMap.cpp:      PsEffHamilBase<FLOATTYPE, NDIM> >("canonicalMF"));
+pseffhamil/PsInteractionMakerMap.cpp:      PsInteraction<FLOATTYPE, NDIM> >("flory"));
+pseffhamil/PsUpdaterMakerMap.cpp:      PsUpdater<FLOATTYPE, NDIM> >("steepestDescent"));
+pshist/PsHistoryMakerMap.cpp:                   PsHistoryBase<FLOATTYPE, NDIM> >("floryConstChi"));
+pshist/PsHistoryMakerMap.cpp:                   PsHistoryBase<FLOATTYPE, NDIM> >("floryChiAtPoint"));
+
+
+psphysf/PsPhysFieldMakerMap.cpp:      PsPhysField<FLOATTYPE, NDIM> >("monomerDens"));
+psphysf/PsPhysFieldMakerMap.cpp:      PsPhysField<FLOATTYPE, NDIM> >("constraint"));
+pspolymer/PsBlockMakerMap.cpp:              PsBlockBase<FLOATTYPE, NDIM> >("flexPseudoSpec"));
+pspolymer/PsPolymerMakerMap.cpp:      PsPolymer<FLOATTYPE, NDIM> >("blockCopolymer"));
+pssolvent/PsSolventMakerMap.cpp:        PsSolvent<FLOATTYPE, NDIM> >("simpleSolvent"));
+
+psstd/PsSTFuncMakerMap.cpp:        PsSTFunc<FLOATTYPE, NDIM> >("expression"));
+psstd/PsSTFuncMakerMap.cpp:        PsSTFunc<FLOATTYPE, NDIM> >("cutExpression"));
+psstd/PsSTFuncMakerMap.cpp:        PsSTFunc<FLOATTYPE, NDIM> >("chiCutExpression"));
+psstd/PsSTFuncMakerMap.cpp:              PsSTFunc<FLOATTYPE, NDIM> >("pyfunc"));
+
+
+
+
+
+*******************************************
+PSimRX (relaxation)   (module???)
+*******************************************
+pseffhamil/PsUpdaterMakerMap.cpp:     PsUpdater<FLOATTYPE, NDIM> >("simpleSpecFilter"));
+pseffhamil/PsUpdaterMakerMap.cpp:     PsUpdater<FLOATTYPE, NDIM> >("multiSpecFilter"));
+psstd/PsSTFuncMakerMap.cpp:       PsSTFunc<FLOATTYPE, NDIM> >("movTanhSlab"));
+psstd/PsSTFuncMakerMap.cpp:       PsSTFunc<FLOATTYPE, NDIM> >("switchMovTanhSlab"));
+
+
+
+*******************************************
+PSimBD (Boundaries)
+*******************************************
+psbndry/PsBndryDataBaseMakerMap.cpp:  PsBndryDataBase<FLOATTYPE, NDIM> >("sphereData"));
+psbndry/PsBndryDataBaseMakerMap.cpp:  PsBndryDataBase<FLOATTYPE, NDIM> >("wallData"));
+psbndry/PsBndryMakerMap.cpp:      PsBndryBase<FLOATTYPE, NDIM> >("fixedWall"));
+pseffhamil/PsInteractionMakerMap.cpp:    PsInteraction<FLOATTYPE, NDIM> >("floryWall"));
+
+
+
+*******************************************
+PSimNP (Nanoparticles) (copies w PSimBD)
+*******************************************
+psbndry/PsBndryDataBaseMakerMap.cpp:  PsBndryDataBase<FLOATTYPE, NDIM> >("sphereData"));
+psbndry/PsBndryDataBaseMakerMap.cpp:  PsBndryDataBase<FLOATTYPE, NDIM> >("wallData"));
+psbndry/PsBndryMakerMap.cpp:      PsBndryBase<FLOATTYPE, NDIM> >("fixedWall"));
+psbndry/PsBndryMakerMap.cpp:      PsBndryBase<FLOATTYPE, NDIM> >("interactingSphere"));
+psbndry/PsBndryMakerMap.cpp:      PsBndryBase<FLOATTYPE, NDIM> >("probeSphere"));
+pseffhamil/PsInteractionMakerMap.cpp:    PsInteraction<FLOATTYPE, NDIM> >("floryWall"));
+
+
+*******************************************
+PSimPE (Polyelectrolyte) development
+*******************************************
+psphysf/PsPhysFieldMakerMap.cpp:    PsPhysField<FLOATTYPE, NDIM> >("chargeDens"));
+pseffhamil/PsUpdaterMakerMap.cpp:    PsUpdater<FLOATTYPE, NDIM> >("poissonUpdater"));
+pssolvent/PsSolventMakerMap.cpp:      PsSolvent<FLOATTYPE, NDIM> >("simpleIons"));
+pspolymer/PsBlockMakerMap.cpp:      PsBlockBase<FLOATTYPE, NDIM> >("chargeFlexPseudoSpec"));
+
+
+*******************************************
+All
+*******************************************
+pspolymer/PsPolymerMakerMap.cpp:      PsPolymer<FLOATTYPE, NDIM> >("randomCopolymer"));
+
+
+pspolymer/PsBlockMakerMap.cpp:       PsBlockBase<FLOATTYPE, NDIM> >("semiflexibleBlock"));  (All)

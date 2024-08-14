@@ -1,0 +1,100 @@
+######################################################################
+#
+# @brief: Pseudospectral setup needed for most simulations.
+#         Default blocks for <Grid>, <Decomp>, <Comm> and <FFT> objects
+#
+# @version $Id: pseudoSpecSetup.mac 15537 2010-10-21 18:02:27Z swsides $
+#
+# Copyright &copy; 2012-2020, Tech-X Corporation, Boulder, CO.
+# All rights reserved.
+#
+######################################################################
+
+# @brief The FFTW implementation of the pseudospectral method
+#              requires a transposed grid to save communication time.
+#              This macro sets up the unifrom Cartesian grids and the
+#              transposed grid with the appropriate decompositions
+#              The communication block is the MPI required by FFTW
+#              and the FFTW objects assoicated with the correct grid
+#              and decomp objects are created as well.
+#
+# @param nx number of cells in x
+# @param ny number of cells in y
+# @param nz number of cells in z
+#
+# @param dx size of cells in x
+# @param dy size of cells in y
+# @param dz size of cells in z
+#
+
+# $ DEBUG   = "'off'"
+
+<macro setupPS(nx, ny, nz, dx, dy, dz, debug)>
+
+  defaultGrid = mainGrid
+
+  #######################################
+  # The main computational grid and     #
+  # the grid for specific parallel FFT  #
+  #######################################
+
+  <Grid mainGrid>
+    kind = uniCartGrid
+    numCellsGlobal = [nx ny nz]
+    cellSizes = [dx dy dz]
+    decomp = slabDecomp
+    printdebug = debug
+  </Grid>
+
+  <Grid fftGrid>
+    kind = uniCartGrid
+    numCellsGlobal = [nx ny nz]
+    cellSizes = [dx dy dz]
+    decomp = transposeSlabDecomp
+    printdebug = debug
+  </Grid>
+
+  #########################
+  # The decompositions
+  #########################
+
+  <Decomp slabDecomp>
+    kind = fftw
+    periodicDirs = [0 1 2]
+    printdebug = debug
+  </Decomp>
+
+  <Decomp transposeSlabDecomp>
+    kind = fftw
+    transposeFlag = on
+    periodicDirs = [0 1 2]
+    printdebug = debug
+  </Decomp>
+
+  ############################
+  # The parallel comm object
+  ############################
+  <Comm defaultComm>
+    kind = mpiComm
+    printdebug = debug
+  </Comm>
+
+# ##############################################
+# FFT objects
+# Both FFT objects only need global dimension
+# info explicitly. Plans are created given the
+# default mpi comm, fftw decomp objects are to
+# be used by objects that use the FFT objects
+
+  <FFT fftWObj>
+    kind = normalfftw
+    gridKind = mainGrid
+  </FFT>
+
+  <FFT fftWTransposeObj>
+    kind = transposefftw
+    gridKind = fftGrid
+  </FFT>
+# ##############################################
+
+</macro>

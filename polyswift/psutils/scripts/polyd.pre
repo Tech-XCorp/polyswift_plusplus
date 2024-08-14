@@ -1,0 +1,213 @@
+######################################################################
+#
+# File:         polyd.pre
+#
+# Purpose:      Simple, linear 2 component polydispserse diblock
+#
+# Define variables in lines starting with '$' for later use
+######################################################################
+
+###################################
+#  Grid parameters                #
+#    Num-cells in sim  [NX NY NZ] #
+#    Cell length in Rg [DX DY DZ] #
+###################################
+$ NX = 64
+$ NY = 64
+$ NZ = 1
+$ DX = 0.20
+$ DY = 0.20
+$ DZ = 0.20
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = 2000          # timesteps in relaxation algo.
+randomSeed = 38383    # If not set, seed uses default
+dumpPeriodicity = 50  # dump period
+printdebug = off      # Switch for certain debug msgs
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+################################################
+# A Boundary object
+################################################
+
+# Defines left(bottom) and right(top) edges
+# of flat walls... along Y for both 2D and 3D
+# domain decomp
+$ WALLEDGE_NEGX = float(0.10*NX)
+$ WALLEDGE_POSX = float(NX - (0.10*NX))
+
+# Sets the hyperbolic tangent profile
+$ WIDTHPARAM = float(0.1/DX)
+
+<Boundary bottomNeutralWall>
+  kind = fixedWall
+  printdebug = DBBNDRY
+  boundaryfield = totWall
+  bndryFieldThreshold = 0.005
+  <STFunc walls>
+    kind = pyfunc
+    name = bottomFlatWall
+    paramKeys = [ widthParam walledge ]
+    paramValues = [ WIDTHPARAM  WALLEDGE_NEGX ]
+  </STFunc>
+</Boundary>
+
+<Boundary topNeutralWall>
+  kind = fixedWall
+  printdebug = DBBNDRY
+  boundaryfield = totWall
+  bndryFieldThreshold = 0.005
+  <STFunc walls>
+    kind = pyfunc
+    name = topFlatWall
+    paramKeys = [ widthParam walledge ]
+    paramValues = [ WIDTHPARAM  WALLEDGE_POSX ]
+  </STFunc>
+</Boundary>
+
+##########################################
+# These physical fields represent density 
+#  regions (walls)
+#  with a material that (interacts) with
+#  ethylene monomers in the bulk.
+# They will NOT be fields
+#  that are updated in the
+#  EffHamil<Updater> section
+
+<PhysField totWall>
+  kind = monomerDens
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+</PhysField>
+##########################################
+
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  updaterSequence = [wAwB]
+
+  <Updater wAwB>
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.20 0.10]
+    noise = 0.005
+    updatefields = [totStyrDens totEthyDens]
+    interactions = [StyrEthy wallStyr wallEthy]
+    constraints = [ wallStyr wallEthy]
+  </Updater>
+
+  <Interaction StyrEthy>
+    kind = flory
+    scfields = [totStyrDens totEthyDens]
+
+    <STFunc chiramp>
+      kind = chiCutExpression
+      chi_lower = 0.08
+      chi_upper = 0.18
+      chi = 0.10 + 0.00005*t
+    </STFunc>
+
+  </Interaction>
+
+  # #############################
+  # Interactions for walls
+  # #############################
+  <Interaction wallEthy>
+    kind = floryWall
+    chi = 0.08
+    scfields = [totWall totEthyDens]
+    wallField = totWall
+  </Interaction>
+
+  <Interaction wallStyr>
+    kind = floryWall
+    chi = -0.08
+    scfields = [totWall totStyrDens]
+    wallField = totWall
+  </Interaction>
+
+</EffHamil>
+
+#######################################################
+# Physical observable fields
+#######################################################
+
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+</PhysField>
+
+################################################################
+#  A Polymer primarily describes chain architecture...namely
+#  a collection of <Block>s (eg homopolymer, diblock, triblock,
+#  n-arm star, n-arm branched etc).
+#
+#  The length of the "first" polymer listed will be used to
+#  to scale the theory
+################################################################
+
+$ NG = 4
+$ import polyDisperse
+createQuadraturePhysFields(styrDens,NG)
+createQuadraturePhysFields(ethyDens,NG)
+
+<Polymer diblock1>
+
+  kind = polyDisperseBCP
+  printdebug = 'off'
+
+  n_g = NG
+  alpha = 1.5
+  polyblock = blockB
+
+  volfrac = 1.0
+  length = 100
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    blockfield = styrDens
+    ds = 0.02
+    lengthfrac = 0.7
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+    blockfield = ethyDens
+    ds = 0.02
+    forceBlockSteps = true
+    lengthfrac = 0.3
+    headjoined = [blockA]
+    tailjoined = [freeEnd]
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+  kind = freeEnergy
+  updaterName = wAwB
+</History>
+
+<History chiN_AB>
+ kind = floryConstChi
+ interactionName = StyrEthy
+</History>

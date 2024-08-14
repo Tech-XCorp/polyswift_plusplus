@@ -1,0 +1,301 @@
+##################################################################
+#
+# File:         interfacePG.pre
+#
+# Purpose:      Test for Proctor and Gamble runs
+#
+# Define variables in lines starting with '$' for later use
+######################################################################
+
+# $ DS = 0.025
+# $ DS2 = 0.005
+
+###################################
+#  Grid parameters                #
+#    Num-cells in sim  [NX NY NZ] #
+#    Cell length in Rg [DX DY DZ] #
+###################################
+$ NX = 512
+$ NY = 64
+$ NZ = 1
+$ DX = 0.0125
+$ DY = 0.05
+$ DZ = 0.05
+$ DS = 0.0125
+$ DS2 = 0.002
+$ LOWER_CHI = 0.8
+$ UPPER_CHI = 5.0
+$ NUMSTEPS = 24000
+
+# surfactant volfrac = [5% -- 0.1%]
+$ SOLFRAC = 0.60 - SURFRAC
+
+###########################
+# Template parameters
+# to be set by series.py
+#
+# $ UPPER_CHI
+# $ NUMSTEPS
+# $ SURFRAC
+###########################
+
+############################
+#    Debug print flags     #
+############################
+$ DBUPDATER     = "'off'"
+$ DBINTERACTION = "'off'"
+$ DBEFFHAMIL    = "'off'"
+$ DBPOLYMER     = "'off'"
+$ DBPTCL        = "'off'"
+$ DBBNDRY       = "'off'"
+$ DBSOLVENT     = "'off'"
+$ DBBLOCK       = "'off'"
+$ DBPHYSFIELD   = "'off'"
+$ DBDEFAULT     = "'off'"
+
+##########################################################
+#            Domain parameters and defaults              #
+#                                                        #
+# Import of defaults.pre contains block descriptions     #
+# for singleton, mandatory, default blocks               #
+# (these are same for all current sims)                  #
+##########################################################
+
+nsteps = NUMSTEPS      # timesteps in relaxation algo.
+randomSeed = 11199     # If not set, seed uses default
+dumpPeriodicity = 500  # dump period
+printdebug = off       # Switch for certain debug msgs
+
+$ import defaults.pre
+##########################################################
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#   (for now) the update methods
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  printdebug = DBEFFHAMIL
+
+  updaterSequence = [wAwBwC]
+
+  <Updater wAwBwC>
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.01 0.005]
+    noise = 0.01
+    printdebug = DBUPDATER
+
+    # 2-component updates
+    # updatefields = [ totPdmsDens totH20Dens ]
+    # interactions = [ PdmsH20 ]
+
+    # 3-component updates
+    updatefields = [ totPdmsDens totH20Dens totPEODens ]
+    interactions = [ PdmsH20 PdmsPEO PEOH20 ]
+  </Updater>
+
+  # Interactions can be separate from Any Updater/etc
+  # blocks or type of eff-Hamiltonian
+  <Interaction PdmsH20>
+
+     kind = flory
+     scfields = [totPdmsDens totH20Dens]
+     printdebug = DBINTERACTION
+
+     <STFunc chiramp>
+      kind = chiCutExpression
+      chi_lower = LOWER_CHI
+      chi_upper = UPPER_CHI
+      # This will add to the default chi above
+      chi = LOWER_CHI + 0.0002*t
+    </STFunc>
+
+  </Interaction>
+
+  # Interactions can be separate from Any Updater/etc
+  # blocks or type of eff-Hamiltonian
+  <Interaction PdmsPEO>
+     kind = flory
+     # chi = 0.30
+     chi = 0.70
+     scfields = [totPdmsDens totPEODens]
+     printdebug = DBINTERACTION
+  </Interaction>
+
+  # Interactions can be separate from Any Updater/etc
+  # blocks or type of eff-Hamiltonian
+  <Interaction PEOH20>
+     kind = flory
+     # chi = 0.10
+     chi = 0.20
+     scfields = [totPEODens totH20Dens]
+     printdebug = DBINTERACTION
+  </Interaction>
+
+</EffHamil>
+
+#######################################################
+# Physical "observable" fields
+#######################################################
+<PhysField totPdmsDens>
+  kind = monomerDens
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+</PhysField>
+
+<PhysField blockPdmsDens>
+  kind = monomerDens
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+</PhysField>
+
+<PhysField totH20Dens>
+  kind = monomerDens
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+</PhysField>
+
+<PhysField totPEODens>
+  kind = monomerDens
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+</PhysField>
+
+#########################################################################
+#  A Polymer primarily describes chain architecture...namely
+#  a collection of <Block>s (eg homopolymer, diblock, triblock,
+#  n-arm star, n-arm branched etc).
+#
+#  The length of the 1st polymer listed will be used to scale lengths
+#  in the theory
+#########################################################################
+<Polymer PDMS>
+
+  kind = blockCopolymer
+  volfrac = 0.40
+  length = 100
+  printdebug = DBPOLYMER
+
+  <Block blockC>
+    kind = flexPseudoSpec
+    scfield = totPdmsDens
+    ds = DS
+    lengthfrac = 1.0
+    headjoined = [freeEnd]
+    tailjoined = [freeEnd]
+    printdebug = DBBLOCK
+  </Block>
+
+</Polymer>
+
+<Old Polymer PEO-PDMS>
+
+  kind = blockCopolymer
+  volfrac = SURFRAC
+  length = 10
+  printdebug = DBPOLYMER
+
+  <Block blockA1>
+    kind = flexPseudoSpec
+    bSegRatio = 1.0
+    scfield = totPEODens
+    ds = DS2
+    lengthfrac = 0.50
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+    printdebug = DBBLOCK
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totPdmsDens
+    blockfield = blockPdmsDens
+    ds = DS2
+    lengthfrac = 0.50
+    headjoined = [blockA1]
+    tailjoined = [freeEnd]
+    printdebug = DBBLOCK
+  </Block>
+
+</Old Polymer>
+
+<Polymer PEO-PDMS-PEO>
+
+  kind = blockCopolymer
+  volfrac = SURFRAC
+  length = 10
+  printdebug = DBPOLYMER
+
+  <Block blockA1>
+    kind = flexPseudoSpec
+    bSegRatio = 1.0
+    scfield = totPEODens
+    ds = DS2
+    lengthfrac = 0.25
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+    printdebug = DBBLOCK
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totPdmsDens
+    blockfield = blockPdmsDens
+    ds = DS2
+    lengthfrac = 0.50
+    headjoined = [blockA1]
+    tailjoined = [blockA2]
+    printdebug = DBBLOCK
+  </Block>
+
+  <Block blockA2>
+    kind = flexPseudoSpec
+    # bSegRatio = 1.0
+    scfield = totPEODens
+    ds = DS2
+    lengthfrac = 0.25
+    headjoined = [blockB]
+    tailjoined = [freeEnd]
+    printdebug = DBBLOCK
+  </Block>
+
+</Polymer>
+
+<Solvent H20>
+  kind = simpleSolvent
+  volfrac = SOLFRAC
+  printdebug = DBPOLYMER
+  scfield = totH20Dens
+</Solvent>
+
+<History excessFE>
+  kind = freeEnergy
+  updatePeriodicity = 10
+  updaterName = wAwBwC
+</History>
+
+<History chiN_PDMS-H20>
+  kind = floryConstChi
+  updatePeriodicity = 10
+  interactionName = PdmsH20
+</History>
+
+<History chiN_PDMS-PEO>
+  kind = floryConstChi
+  updatePeriodicity = 10
+  interactionName = PdmsPEO
+</History>
+
+<History chiN_PEO-H20>
+  kind = floryConstChi
+  updatePeriodicity = 10
+  interactionName = PEOH20
+</History>

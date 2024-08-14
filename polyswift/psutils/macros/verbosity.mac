@@ -1,0 +1,23 @@
+################################################################
+#
+# @brief Definitions of verbosity levels
+#
+# @version $Id: verbosity.mac 15536 2010-10-21 17:59:04Z sws $
+#
+# Copyright &copy; 2012-2020, Tech-X Corporation, Boulder, CO.
+# All rights reserved.
+#
+#################################################################
+
+# Verbosities
+$ PS_EMERGENCY = 0
+$ PS_ALERT = PS_EMERGENCY + 1
+$ PS_CRITICAL = PS_ALERT + 1
+$ PS_ERROR = PS_CRITICAL + 1
+$ PS_WARNING = PS_ERROR + 1
+$ PS_NOTICE = PS_WARNING + 1
+$ PS_INFO = PS_NOTICE + 1
+$ PS_DEBUG = PS_INFO + 1
+$ PS_DEBUG2 = PS_DEBUG + 1
+$ PS_DEBUG3 = PS_DEBUG2 + 1
+
