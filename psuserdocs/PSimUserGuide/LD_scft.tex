@@ -1,0 +1,1004 @@
+%%\documentclass[onecolumn,preprint,showpacs,preprintnumbers,amsmath,amssymb,floatfix]{elsart}
+\documentclass[onecolumn,amsmath,amssymb,floatfix]{elsart}
+
+\usepackage{epsfig}
+
+
+\begin{document}
+
+% Elsevier change
+\begin{frontmatter}
+
+
+\title
+{
+Parallel algorithm for numerical self-consistent field theory
+simulations of block copolymer structure
+}
+
+% Elsevier change
+% \date{\today}
+
+% Elsevier change, author list
+
+\author{Scott W. Sides\corauthref{cor}},
+\ead{swsides@mrl.ucsb.edu}
+\author{Glenn H. Fredrickson}
+
+\corauth[cor]{Corresponding author}
+
+
+
+% Elsevier change
+\address
+{
+University of California at Santa Barbara (UCSB)
+Santa Barbara, CA 93106
+}
+
+
+\begin{abstract}
+
+An efficient algorithm is presented for numerically evaluating a
+self-consistent field theoretic (SCFT) model of block copolymer
+structure.
+This algorithm is implemented on a distributed memory
+parallel cluster in order to solve the SCFT equations on large
+computational grids.
+Simulation results are presented for a
+two-component molten mixture of a symmetric $ABA$ triblock
+copolymer with an $A$ homopolymer.
+These results illustrate
+a case in which simulating a large system is required to resolve
+features with a wide range of length-scales.
+
+\end{abstract}
+
+\begin{keyword}
+block copolymer \sep self-consistent field theory \sep polymer melts \sep parallel computing
+\PACS 61.25.Hq \sep 61.43.Bn \sep 64.75.+g \sep 64.60.Cn \sep 64.70.Nd
+\end{keyword}
+
+% Elsevier change
+% \pacs
+% {
+% 61.25.Hq, 61.43.Bn, 64.75.+g, 64.60.Cn, 64.70.Nd
+% }
+
+% 61.25.Hq  Macromolecular and polymer solutions; polymer melts; swelling
+% 61.43.Bn Structural modeling: serial-addition models, computer simulation
+% 64.75.+g Solubility, segregation, and mixing; phase separation
+% 64.60.Cn Order-isorder transformations; statistical mechanics of model systems
+% 64.70.Nd Structural transitions in nanoscale materials
+
+% Elsevier change
+% \maketitle
+
+
+% Elsevier change
+\end{frontmatter}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+\label{sec_intro}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+Block copolymers are an important class of materials
+that are employed in colloidal stabilization
+\cite{napper83_book,russell89_book}, as adhesives, and as
+thermoplastic elastomers.
+In another application, the adhesion between two glassy,
+incompatible homopolymer melts can be strengthened
+\cite{brown93_2,kramer94_adhesion_review,kramer96_copoly} by the
+addition of diblock copolymers that organize near the interface.
+Blends of homopolymers can also be stabilized by the addition of
+block copolymers \cite{riess_review75} and can form bi-continuous
+microemulsions \cite{bates_microemulsion01}.
+The morphologies of pure block copolymer systems observed in experiments
+\cite{hamley98_book} and predicted by simulations \cite{drolet99}
+suggest many exciting possibilities for creating novel and
+potentially useful soft material nanostructures and templates.
+
+
+Self-consistent field theory (SCFT) for dense polymer melts
+\cite{freed72,hong_noolandi81} has been highly successful in
+describing complex morphologies in block copolymers.
+SCFT provides a method whereby the Hamiltonian of a complex system may be
+transformed into a coarse-grained field theory description, whose
+mean-field solution is amenable to a battery of analytic and
+numerical methods.
+Matsen and Schick \cite{matsen_schick94} have
+solved the SCFT equations with a ``spectral'' method that can
+calculate very accurate free-energies, but requires foreknowledge
+of the preferred symmetry for each structural phase.
+Recently, a ``real space'' numerical method has been used to solve the SCFT
+equations \cite{drolet99,fraaije97,glenn_review_02} which does not need any
+information about the equilibrium morphologies.
+This numerical SCFT method is more flexible than the spectral method and has a
+greater predictive capability, however it is computationally
+intensive and requires large memory resources.
+
+
+For a single-component, monodisperse copolymer, the ordered
+structures are periodic and have a size on the order of the radius
+of gyration of the unperturbed chain.
+These cases require simulating relatively small systems in order to resolve the
+relevant length scale.
+However for multicomponent mixtures or
+systems with chemical disorder, a range of widely separated length
+scales could be germane to fully describing equilibrium
+morphologies and will require the use of large simulation cells.
+The present work is aimed at
+providing a computational methodology appropriate for such systems.
+Section \ref{sec_theory} contains an outline of  SCFT for
+polymers.
+Section \ref{sec_scft_algorithm} briefly describes the
+numerical implementation of the theory including details on the
+parallelization algorithm.
+Results for a triblock/homopolymer mixture are discussed in
+Sec.~\ref{sec_results} followed by conclusions in Sec.~\ref{sec_conclusions}.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{SCFT theory for polymers}
+\label{sec_theory}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+We briefly describe the model and simulation method used to predict
+the structure of a dense melt of $AB$ diblock copolymers.
+The method is easily generalized to
+treat the $ABA$ triblock / $A$ homopolymer mixtures considered in
+this paper.
+The Hamiltonian for a dense system of polymer chains
+comprised of blocks containing chemically distinct monomers $A$ and $B$ is
+%
+ \begin{eqnarray}
+ % Elsevier change XXX ALL \cal GONE
+ H
+ & = &
+  \frac{1}{4 R_{{\rm g}0}^2 } \sum^{n}_{\alpha = 1}
+           \int_0^1 ds \left ( \frac{ d {\vec r}_{\alpha}(s)}{ds} \right )^{2} +
+           \rho_0^{-1} \int d{\vec r} \ \chi \ {\hat \rho_A}({\vec r}) {\hat \rho_B}({\vec r}) .
+ \end{eqnarray}
+%
+The first term in $H$ is the free-energy contribution from
+the so-called ``Gaussian thread'' \cite{doi_book} model.
+This term can be
+derived as the continuous limit of a chain model consisting of
+coarse-grained, spherical beads connected by harmonic springs,
+where $R_{{\rm g}0}$ is the radius of gyration for the unperturbed
+Gaussian chain, $n$ is the number of chains and ${\vec
+r}_{\alpha}(s)$ is a space curve parameterized by the chain
+contour variable $s$ which describes the configuration of the
+$\alpha^{th}$ chain. The second term is obtained from a Flory-type
+model of the interaction energy between chemically distinct
+monomer species $A$ and $B$, which is parameterized by $\chi$. The
+total monomer density is $\rho_0$=$n N/V$, where $N$ is the
+polymerization index and $V$ is the volume. For these simulations
+$\chi > 0$, indicating an overall repulsive force between
+dissimilar monomers which drives phase separation. Note that while
+$\chi$ is known experimentally to depend on temperature, there is
+no such explicit dependence in the present theoretical
+formulation. The predictions for the mesoscopic structure of the
+triblock system studied in this paper are for particular values of
+$\chi$, which depend not only on the specific interactions between
+chemical species $A$ and $B$, but on the temperature as well.
+
+
+The monomer density operators for the $A$ and $B$ species are
+%
+ \begin{eqnarray}
+ {\hat \rho_A}({\vec r})
+     & = & N \sum^{n}_{\alpha = 1}
+           \int_0^f ds \ \delta({\vec r} - {\vec r}_{\alpha}(s)) \\
+ {\hat \rho_B}({\vec r})
+     & = & N \sum^{n}_{\alpha = 1}
+           \int_f^1 ds \ \delta({\vec r} - {\vec r}_{\alpha}(s))
+ \end{eqnarray}
+%
+where $f$ is the fraction of the chain consisting of $A$ monomers.
+The partition function for this system can be written as
+%(eqn untransformed Z)
+%
+ \begin{eqnarray}
+ \label{eqn_untransformed_Z}
+  Z & = &
+      \int \prod^{n}_{\alpha = 1} \tilde{D} {\vec r}_{\alpha} \
+      \exp \left \lbrace
+           - \rho_0^{-1} \int d{\vec r} \ \chi \ {\hat \rho_A}({\vec r}) {\hat \rho_B}({\vec r})
+           \right \rbrace
+      \delta[\rho_0 - {\hat \rho_A} - {\hat \rho_B}]
+ \end{eqnarray}
+%
+with
+%
+ \begin{eqnarray}
+  \tilde{D} {\vec r}_{\alpha}
+    & = &
+    D {\vec r}_{\alpha}
+      \exp \left \lbrace
+           - \frac{1}{4 R_{{\rm g}0}^2 } \int_0^1
+           ds \left ( \frac{ d {\vec r}_{\alpha}(s)}{ds} \right )^{2}
+           \right \rbrace
+ \end{eqnarray}
+where $\int D {\vec r}_\alpha$ denotes a path integral over
+all possible conformations of the $\alpha$th chain and the delta
+function enforces an incompressibility constraint between $A$
+and $B$ monomers such that the total monomer density is kept
+constant.
+The partition function is now expressed in terms of
+monomer density operators which enumerate the positions of the
+$A$/$B$ monomers on the $n$ polymer chains.
+This expression for
+$Z$ may be converted into a field-theoretic description by a
+Hubbard-Stratonovich (HS) transformation
+by insertion of the functional integral identity
+%(eqn functional identity)
+%
+ \begin{eqnarray}
+ \label{eqn_functional_identity}
+  1
+  & = &
+  \int D[\rho] \ \delta[\rho - {\hat \rho} ] \\
+  \nonumber
+  & = &
+  \int D[\rho] D[\omega]
+    \exp
+    \left \lbrace
+     \int d{\vec r} \ i w({\vec r})
+       \left [ \rho({\vec r}) - {\hat \rho}({\vec r}) \right ]
+     \right \rbrace
+ \end{eqnarray}
+%
+where the chemical potential field $w({\vec r})$ has been introduced through
+the exponential representation of the delta functional
+$\delta[\rho - {\hat \rho} ]$.
+Using the identity in Eqn.~\ref{eqn_functional_identity} for both $A$ and $B$ density
+operators and substituting the exponential form of the incompressibility constraint
+gives
+%(eqn transformed Z)
+%(eqn free energy 1)
+%(eqn single chain Q)
+%
+ \begin{eqnarray}
+ \label{eqn_transformed_Z}
+ Z
+ & = &
+  \int D\rho_A D\rho_B D\omega_A D\omega_B Dp
+  \ e^{-\beta F}
+ \end{eqnarray}
+%
+%
+ \begin{eqnarray}
+ \label{eqn_free_energy_1}
+ \beta F
+ & = &
+  \int d{\vec r}
+   \left [
+     \rho_0^{-1} \chi \rho_A \rho_B
+      - i w_A \rho_A
+      - i w_B \rho_B - i p (\rho_0 - \rho_A - \rho_B) \right ] \\
+ & - & n \ln Q[i w_A,i w_B;N]
+ \end{eqnarray}
+%
+with
+ \begin{eqnarray}
+ \label{eqn_single_chain_Q}
+ Q
+ & = &
+  \frac{
+  \int {\tilde D} {\vec r}_{\alpha} \
+  \exp
+  \left \lbrace
+    - \int_0^f ds \ i N w_A({\vec r}_{\alpha}(s))
+    - \int_f^1 ds \ i N w_B({\vec r}_{\alpha}(s))
+  \right \rbrace}{\int {\tilde D} {\vec r}_{\alpha}}
+ \end{eqnarray}
+%
+The field $p$ is a ``pressure field'' introduced to enforce
+incompressibility and $Q$ is the single-chain partition function
+which is a functional of the chemical potential fields $w_A$,
+$w_B$ and a function of the chain length $N$.
+The explicit ${\vec r}$ dependence is ignored for brevity and ``ideal gas'' terms of
+order $\ln V$ have been dropped as they merely add a constant
+shift in the free-energy.
+The equation for $Q$ is analogous to the
+Feynman-Kac formula in the path-integral description of quantum
+mechanics \cite{feynman_hibbs65_book} and may be expressed as
+%(eqn Q)
+%
+ \begin{eqnarray}
+ \label{eqn_Q}
+  Q & = &
+   V^{-1} \int d{\vec r} \ q({\vec r},1)
+ \end{eqnarray}
+%
+where $q({\vec r},s)$ is a restricted chain partition function that
+may be calculated as the solution to the modified diffusion equation
+%(eqn diffusion for q)
+%
+ \begin{eqnarray}
+ \label{eqn_diffusion_for_q}
+  \frac{\partial q}{\partial s}
+   & = &
+   \left \{ \begin{array}{cc}
+    R_{{\rm g}0}^2 \nabla^2 q({\vec r},s) - i N w_A q({\vec r},s),
+    & 0 < s < f \\
+    \\
+    R_{{\rm g}0}^2 \nabla^2 q({\vec r},s) - i N w_B q({\vec r},s),
+    & f < s < 1
+   \end{array} \right .
+ \end{eqnarray}
+%
+subject to the initial condition $q({\vec r},0)$=$1$.
+The HS transformation has allowed the discrete density operators ${\hat \rho}$
+to be replaced by the ``smeared out'' density fields $\rho$
+and permits the chain-chain interactions present in
+Eqn.~\ref{eqn_untransformed_Z} to be reformulated in terms of a {\it single} chain
+interacting with the chemical potential fields $w_A$ and $w_B$.
+
+
+However, the functional integrals in Eqn.~\ref{eqn_transformed_Z} are still
+analytically intractable, so a numerical simulation is required.
+Here, we consider a mean-field approximation where the full
+partition function is approximated by its value when the fields
+attain their ``saddle-point'' values.
+For field-theoretic polymer models such
+as the one presented here, it is known that \cite{glenn_review_02}
+the equilibrium saddle-points are located along the imaginary axis in
+the complex-$w$ plane. 
+Hence, the following fields may be rescaled
+as $\omega_A$=$i N w_A$, $\omega_B$=$i N w_B$, and $p$  =$i N p$
+with $\omega_A$, $\omega_B$ and $p$ purely real.
+The simulation results for all density configurations in the phase-separated
+block copolymer systems will be presented in terms of the
+dimensionless monomer volume fraction $\phi_i$=$\rho_i / \rho_0$ for each species $i$.
+Rescaling the free-energy by
+$N/\rho_0 V$ and shifting so that $F-F_0$=$0$ for $\omega_i$=$0$
+(where $F_0$ is the free-energy of the disordered phase),
+gives the free-energy per chain as
+%(eqn free energy shifted)
+%
+ \begin{eqnarray}
+ \label{eqn_free_energy_shifted}
+ {\tilde F}
+ \nonumber
+ & = &
+  V^{-1} \int d{\vec r}
+   \left [
+     \chi N (\phi_A - \bar{\phi}_A)
+            (\phi_B - \bar{\phi}_B)
+     - \omega_A \phi_A
+     - \omega_B \phi_B
+     - p(1 - \phi_A - \phi_B)
+   \right ] \\
+ & - & \ln Q[\omega_A,\omega_B]
+ \end{eqnarray}
+%
+where $\bar{\phi_A}$ [$\bar{\phi_B}$] is the average
+volume fraction of the $A$[$B$] species respectively.
+The value of
+the fields [$\phi_A$,$\phi_B$,$\omega_A$,$\omega_B$,$p$] at the
+saddle-point satisfy the following set of equations
+%(eqn self consistent set 1-5)
+%
+ \begin{eqnarray}
+   \label{eqn_self_consistent_set_1}
+   \omega_A({\vec r}) = \chi N \ (\phi_B({\vec r})-\bar{\phi}_B) + p({\vec r})
+ \end{eqnarray}
+%
+ \begin{eqnarray}
+   \label{eqn_self_consistent_set_2}
+   \omega_B({\vec r}) = \chi N \ (\phi_A({\vec r})-\bar{\phi}_A) + p({\vec r})
+ \end{eqnarray}
+%
+ \begin{eqnarray}
+   \label{eqn_self_consistent_set_3}
+   \phi_A({\vec r}) + \phi_B({\vec r}) = 1
+ \end{eqnarray}
+%
+ \begin{eqnarray}
+   \label{eqn_self_consistent_set_4}
+   \phi_A({\vec r}) = - \frac{V}{Q} \frac{\delta Q}{\delta \omega_A}
+ \end{eqnarray}
+%
+ \begin{eqnarray}
+   \label{eqn_self_consistent_set_5}
+   \phi_B({\vec r}) = - \frac{V}{Q} \frac{\delta Q}{\delta \omega_B} .
+ \end{eqnarray}
+%
+Using a well-known factorization of the single-chain path integral
+\cite{freed72,feynman_hibbs65_book,helfand74} the functional derivatives in
+Eqns.~\ref{eqn_self_consistent_set_4} and \ref{eqn_self_consistent_set_5}
+may be rewritten, resulting in the following expressions for the $A$ and $B$
+monomer density fractions
+%(eqn density A)
+%(eqn density B)
+%
+ \begin{eqnarray}
+   \label{eqn_density_A}
+   \phi_A({\vec r})
+   & = &
+   \frac{1}{Q} \int_0^f ds \ q({\vec r},s) \ q^\dagger({\vec r},s) \\
+   \label{eqn_density_B}
+   \phi_B({\vec r})
+   & = &
+   \frac{1}{Q} \int_f^1 ds \ q({\vec r},s) \ q^\dagger({\vec r},s)
+ \end{eqnarray}
+%
+where the solution to the restricted partition function $q^\dagger$,
+may be calculated as the solution to a modified diffusion equation similar
+to Eqn.~\ref{eqn_diffusion_for_q} subject to the initial condition
+$q^\dagger({\vec r},1)$=$1$ \cite{matsen_schick94}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Numerical SCFT Algorithm}
+\label{sec_scft_algorithm}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Calculating saddle-points}
+\label{subsec_saddle_points}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+Equations \ref{eqn_self_consistent_set_1} -
+\ref{eqn_self_consistent_set_5} must be solved self-consistently
+to determine the saddle-point configurations of the fields
+[$\phi_A$,$\phi_B$,$\omega_A$,$\omega_B$,$p$].
+We want to devise
+an iterative procedure whereby the fields may be relaxed towards
+their saddle-point values.
+Since one is concerned only with the
+equilibrium values for the fields, the intermediate field values
+are not required to describe any sort of realistic dynamics during
+the relaxation algorithm.
+Hence, the chemical potential fields
+$\omega_A$, $\omega_B$ may be treated as the relevant dynamical
+variables with the changes in the $\phi_A$,$\phi_B$ and $p$ fields
+treated as fast modes and, at each relaxation step, slaved to the
+values of the chemical potentials.
+Following the work of Drolet and Fredrickson \cite{drolet99,glenn_review_02} we
+employ a ``model A'' type relaxation dynamics
+\cite{halperin_rev77} for finding the saddle-point configurations of the fields.
+This results in the following expressions for updating the chemical potential
+fields from relaxation step $n$ to $n+1$
+%
+ \begin{eqnarray}
+ \label{eq_relaxation_scheme_2}
+   \omega_A^{n+1} - \omega_A^{n}
+   & = &
+    \lambda^{'} \frac{\delta {\tilde F}}{\delta \phi_B^n} +
+    \lambda     \frac{\delta {\tilde F}}{\delta \phi_A^n} \\
+   \omega_A^{n+1} - \omega_A^{n}
+   & = &
+   \nonumber
+    \lambda^{'} \left [ \phi_A^n - \bar{\phi}_A
+                      - \frac{\omega_B^n - p^n}{\chi N}
+                \right ] +
+    \lambda     \left [ \phi_B^n - \bar{\phi}_B
+                      - \frac{\omega_A^n - p^n}{\chi N}
+                \right ]
+ \end{eqnarray}
+%
+ \begin{eqnarray}
+ \label{eq_relaxation_scheme_3}
+   \omega_B^{n+1} - \omega_B^{n}
+   & = &
+    \lambda         \frac{\delta {\tilde F}}{\delta \phi_B^n} +
+    \lambda^{'}     \frac{\delta {\tilde F}}{\delta \phi_A^n} \\
+   \omega_B^{n+1} - \omega_B^{n}
+   & = &
+   \nonumber
+    \lambda     \left [ \phi_A^n - \bar{\phi}_A
+                      - \frac{\omega_B^n - p^n}{\chi N}
+                \right ] +
+    \lambda{'}  \left [ \phi_B^n - \bar{\phi}_B
+                      - \frac{\omega_A^n - p^n}{\chi N}
+                \right ]
+ \end{eqnarray}
+%
+where the relaxation parameters are chosen such that
+$\lambda^{'} < \lambda$ and $\lambda > 0$
+and the quantities $\phi_A^n$, $\phi_B^n$
+are calculated as functionals of $\omega_A^n$, $\omega_B^n$
+using Eqns.~\ref{eqn_density_A}, \ref{eqn_density_B}.
+The relaxation scheme for calculating the saddle-point values for the fields
+is implemented through the following steps;
+%
+ \begin{enumerate}
+  \item  random initial values are set for $\omega_A$, $\omega_B$ and $p$
+  \item  the modified diffusion equations are solved
+         numerically to calculate $q({\vec r},s)$ and $q^\dagger({\vec r},s)$,
+  \item  these functions are substituted into Eqns.~\ref{eqn_density_A},
+         \ref{eqn_density_B} to obtain $\phi_A^n$, $\phi_B^n$,
+  \item  the expressions in Eqns.~\ref{eq_relaxation_scheme_2}, \ref{eq_relaxation_scheme_3}
+         are used to update the
+         chemical potential fields at the $n$-th iteration, $\omega^{n}$,
+         to their values at the $(n+1)$-th iteration, $\omega^{n+1}$,
+  \item  the pressure field is updated using the expression
+         $p^{n+1}$=$(\omega^{n+1}_A + \omega^{n+1}_B)/2$.
+ \end{enumerate}
+After updating the pressure field, its spatial average
+$V^{-1} \int p({\vec r}) \ d{\vec r}$ is subtracted so as
+to improve the algorithm's stability.
+This has no effect on the equilibrium structure of the chains as the thermodynamic
+properties are invariant to a constant shift in the pressure field.
+With the new fields $\omega_A$, $\omega_B$ and $p$ the procedure returns
+to step $2$ and is repeated until the saddle-point configurations are found.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Parallel algorithm}
+\label{subsec_parallel}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+The most computationally demanding step in the SCFT algorithm
+outlined in Sec.~\ref{subsec_saddle_points} is in obtaining the
+solutions for the restricted partition functions
+$q$ and $q^\dag$.
+Finding these solutions requires solving
+Eqn.~\ref{eqn_diffusion_for_q} every time the chemical potential
+fields $\omega_A$ and $\omega_B$ are updated.
+To relax these
+fields to the saddle-point configurations can require on the order
+of $10^3$-$10^4$ iterations; hence, an efficient method for
+solving the modified diffusion equations for $q({\vec r},s)$ and
+$q^{\dagger}({\vec r},s)$ is essential.
+We have tried various
+finite-difference algorithms including explicit and implicit
+schemes \cite{caj_fletcher_book} for solving partial differential
+equations.
+Implicit schemes such as Crank-Nicholson are more
+stable and accurate than the simple forward-time centered-space
+explicit scheme.
+However, the Crank-Nicholson scheme is only
+conditionally stable in three dimensions and is not
+straightforward to implement on a distributed memory computer
+cluster.
+More sophisticated explicit schemes such as the
+Dufort-Frankel algorithm are unconditionally stable in two and
+three dimensions and are more readily amenable to parallelization.
+Still, this scheme has accuracy restrictions which limit the size
+of the contour step $\Delta s$ that can be used.
+
+
+In a recent paper \cite{lookman02}, a pseudo-spectral (PS) algorithm was used to
+solve the modified diffusion equations in SCFT theory for calculating
+block-copolymer structure.
+This method is unconditionally stable in all dimensions and has superior accuracy
+to the finite-difference algorithms referenced above.
+The derivation of the PS algorithm starts with the
+exact expression for propagating the solution at $q({\vec r},s)$ to
+$q({\vec r},s+\Delta s)$
+%(eqn pseudospec 1)
+%
+ \begin{eqnarray*}
+ \label{eqn_pseudospec_1}
+  q({\vec r},s + \Delta s)
+  & = &
+   \exp \left[\Delta s (\nabla^2 - w({\vec r})) \right ]
+   q({\vec r},s) .
+ \end{eqnarray*}
+%
+If the time propagator above is expanded and terms of order
+$(\Delta s)^3$ are ignored, the remaining terms can be rewritten as
+%(eqn pseudospec 2) (eqn pseudospec 3)
+%
+ \begin{eqnarray*}
+ \label{eqn_pseudospec_2}
+  q({\vec r},s + \Delta s)
+  & \approx &
+   e^{- w({\vec r}) \Delta s / 2} e^{\Delta s \nabla^2}
+   e^{- w({\vec r}) \Delta s / 2}
+   q({\vec r},s) \\
+  & \approx &
+  \label{eqn_pseudospec_3}
+   e^{- w({\vec r}) \Delta s / 2} {\hat F}^{-1}
+   \left [ e^{- \Delta s \ k^2}
+   {\hat F}
+    \left  [ e^{- w({\vec r}) \Delta s / 2} q({\vec r},s)
+    \right ]
+   \right ] .
+ \end{eqnarray*}
+%
+The first exponential factor depending on $\omega({\vec r})/2$ is applied
+in real space to $q({\vec r},s)$.
+The Fourier transform ${\hat F}$ is applied to this result and then
+the operator $\exp[\Delta s \nabla^2]$ can be applied exactly in reciprocal
+space as $\exp(-\Delta s \ k^2)$
+for a given discretization of the chemical potential fields $\omega$ and
+restricted partition functions $q({\vec r},s)$.
+The inverse Fourier transform ${\hat F}^{-1}$ is applied to this result
+and the last exponential factor is again applied in real space.
+Since two Fourier transforms must be applied to calculate $q({\vec r},s)$ for each
+contour step $s$, an efficient Fourier transform algorithm is essential.
+The publicly available FFTW \cite{fftw98} fast-Fourier transform libraries
+were employed in the numerical SCFT code used to obtain the
+results in this paper.
+
+
+The unconditional stability and improved accuracy
+of the PS algorithm allows for fewer spectral elements and
+a larger $\Delta s$ to be used, relative to finite-difference methods.
+Therefore, fewer contour steps are needed to solve for
+$q({\vec r},s)$ from $s$=$0$ to $s$=$1$ resulting in decreased
+computation times.
+For very large systems, the SCFT algorithm has been parallelized enabling
+implementation on a distributed memory cluster of computers.
+Figure \ref{fig_domain_decomposition} shows a diagram of a
+computational grid used to discretize the fields $\omega_A({\vec r})$,
+$\omega_B({\vec r})$, $\phi_A({\vec r})$, $\phi_B({\vec r})$
+as well as the functions $q({\vec r},s)$, $q^{\dagger}({\vec r},s)$.
+This diagram illustrates a spatial, domain decomposition
+scheme in which separate regions of the computational lattice are
+assigned to distinct processors.
+All variables, including those regions of the computational grid shown in
+Fig.~\ref{fig_domain_decomposition}, that have unique values
+corresponding to a distinct processor (or node) will be referred
+to as ``local''.
+Variables that have the same values on all processors or refer to
+overall system parameters will be referred to as ``global''.
+Each processor performs computations on its local data, and uses MPI
+communication between nodes when a
+computation requires data which is local to another processor.
+The steps in the SCFT algorithm outlined in
+Sec.~\ref{subsec_saddle_points} are parallelized by identifying
+the steps requiring only local computation, and the steps which
+also include inter-processor communication via MPI.
+
+
+After initializing all fields, step $2$ in Sec.~\ref{subsec_saddle_points}
+requires solving modified diffusion equations, whose solutions can be obtained
+by repeated evaluation of Eqn.~\ref{eqn_pseudospec_3}.
+The action of the real-space operators $\exp(- w({\vec r}) \ \Delta s / 2)$
+and the reciprocal-space operator $\exp(- \Delta s \ k^2)$ need only local computation.
+However, the forward and backward Fourier transforms require both local computation and
+inter-processor communication.
+A parallel Fourier transform is performed in an analogous manner as a serial
+Fourier transform on a multi-dimensional array of data.
+First, a series of  1-d FFT's in the $y$ and $z$ directions is applied to
+all local data.
+Since FFT algorithms (such as the standard Danielson-Lanczos algorithm \cite{pres92})
+require all data in one dimension to be local, this explains the slab decomposition
+illustrated in Fig.~\ref{fig_domain_decomposition}.
+Second, a
+matrix transpose operation is performed and then another 1d FFT is
+applied along the remaining $x$ direction.
+Communication cost is incurred through the matrix transpose,
+which clearly requires sending and receiving data to and from
+sections of the computation grid local to different processors.
+In step $3$, Eqns.~\ref{eqn_density_A} and \ref{eqn_density_B} are used to
+compute the monomer density fields $\phi_A$, $\phi_B$.
+The integrals over $ds$ are calculated by a simple quadrature algorithm,
+(using the extended-trapezoidal rule) requiring only local computation.
+However, the single-chain partition function $Q$ contains an integral
+over space requiring more inter-processor communication, which
+is implemented with a simple MPI ``all-to-all'' \cite{mpi_book}
+global communication call.
+The final steps $4$ and $5$,
+updating the fields $\omega_A$, $\omega_B$ and $p$ from $n$ to
+$n+1$, require only local computation.
+Timing results for the
+parallel SCFT code are shown in Figs.~\ref{fig_timing}a and
+\ref{fig_timing}b for $2d$ and $3d$ systems, respectively.
+The data in these figures represents both the
+computation/communication time required to solve the diffusion equation
+with the pseudo-spectral algorithm for $1000$ field iterations.
+Note, that except for I/O, other parts of the SCFT calculation are small
+in comparison to this contribution to the CPU time.
+The insets in Fig.~\ref{fig_timing} show log-log plots of the same timing data with
+dotted lines indicating the limit of perfect speedup.
+A decrease in parallel efficiency for small systems is most
+clearly illustrated in the inset for Fig.~\ref{fig_timing}b.
+For the smaller system ($32^3$), parallel performance is degraded
+as the number of processors increases.
+This trend
+illustrates the increasing ratio of communication-to-computation CPU time
+as the number of lattice points per processor decreases.
+Hence, the decrease in parallel efficiency for the larger system in
+Fig.~\ref{fig_timing}b is less pronounced than in the smaller system.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Results}
+\label{sec_results}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+Figures \ref{fig_density_aba_a_chi_0.10} and
+\ref{fig_density_aba_a_chi_0.16} show density configurations for a
+mixture of symmetric triblock copolymer chains and monodisperse
+homopolymer chains.
+The outer blocks of the triblock consist of
+equally sized lengths of polymerized $A$ monomers while the inner
+block consists of $B$ monomers.
+The total number of $A$ monomers
+on each triblock chain is $f_A N_t$ where $f_A$ is the fraction of
+$A$ monomers/triblock and $N_t$ is the triblock polymerization
+index.
+The volume fraction of monomers on homopolymer chains $v_h$ is given by
+%
+ \begin{equation}
+ \label{eqn_vol_frac_homopolymer}
+   v_h = \frac{n_h N_h}{n_h N_h + n_t N_t}
+ \end{equation}
+%
+where $n_h$($n_t$) is the number of homopolymer(triblock) chains
+and $N_h$ is the homopolymer polymerization index.
+The chain lengths used are $N_h$=$100$ and $N_t$=$200$.
+The total density of $A$ monomers is shown in Figs.~\ref{fig_density_aba_a_chi_0.10} and
+\ref{fig_density_aba_a_chi_0.16}
+with light(dark) regions corresponding to high(low) values of the
+monomer density volume fraction, $\rho_A({\vec r})$.
+With only two chemical species, the incompatibility between them
+is described by a single Flory parameter, $\chi_{AB}$.
+
+
+Small values of $v_h$ (on the left of each plot) correspond to a
+mixture consisting of almost pure triblock while the large values
+of $v_h$ correspond to a nearly pure homopolymer mixture.
+For small $v_h$, the typical phase-separated cylindrical and lamellar
+ordered structures can be seen with disordered phases for the
+largest and smallest values of $f_A$.
+As homopolymer is added to
+the pure triblock, the $A$ domains of the triblock begin to swell.
+For sufficiently large amounts of homopolymer, the $A$ domains of
+the triblock can stretch no further and macrophase separation
+occurs with large domains of pure homopolymer appearing.
+All of these features are in qualitative agreement with SCFT results by
+Matsen \cite{matsen_mixtures95} of an $AB$ diblock / $A$
+homopolymer mixture.
+However, these calculations use a spectral
+method to calculate the SCFT theory and require assumptions about
+the symmetries of the phase-separated states.
+The attractiveness of the present pseudo-spectral approach is that
+it allows for a rapid assessment of phase behavior in complex
+mixtures characterized by a large number of model parameters.
+
+
+The density plot shown for $f_A$=$0.3$ and $v_h \sim 0.2$ in
+Fig.~\ref{fig_density_aba_a_chi_0.16} illustrates the two-phase region particularly well.
+The smallest domains consist primarily of $A$ monomers belonging to
+triblock chains with a size corresponding to the cylindrical phase
+in the pure triblock.
+The larger domains consist mostly of homopolymer chains that have been expelled
+from the smaller cylindrical phase domains.
+Additional features have been introduced with length scales larger than
+the cylindrical triblock domains, such as the spacing between the larger
+domains and the arrangement of the small domains which
+is clearly affected by the presence of the phase-separated homopolymer-rich regions.
+
+
+It should be noted that these density profiles are not the true
+saddle-point configurations of the fields, but represent local
+metastable configurations in the vicinity of the equilibrium
+saddle point.
+These configurations contain a variety of
+topological defects which distort pure lamellar order
+(e.g.~$f_A$=$0.50$, $v_h \sim 0.05$) as well as perfect, hexagonal
+ordering for cylindrical domains (e.g.~ $f_A$=$0.70$, $v_h \sim 0.05$).
+However, ``near-equilibrium'' configurations such as these
+are typically observed in experiments.
+Moreover, the present simulation strategy has produced defect structures in
+qualitative agreement with size adjustments observed in $5$-fold
+and $7$-fold coordinated defects in PCHE-PE-PCHE triblock thin films \cite{hammond03}.
+Figure \ref{fig_big} shows the SCFT result
+for a much larger system ($1024 \times 1024$ lattice) with the same
+parameters as one of the runs shown in
+Fig.~\ref{fig_density_aba_a_chi_0.16} (i.e.~$f_A$=$0.30$, $v_h \sim 0.20$).
+The true equilibrium configuration for a macrophase
+separated system would presumably contain a single,
+homopolymer-rich domain but Fig.~\ref{fig_big} shows one possible
+distribution of sizes and arrangements of smaller,
+homopolymer-rich domains.
+The distribution of these smaller
+domains can be thought of as topological defects in the copolymer
+mixture that will migrate and very slowly coalesce into a single
+macroscopic domain as additional iterations of the SCFT algorithm are performed.
+However the configuration shown in Fig.~\ref{fig_big}
+should correspond to an experimentally realizable structure, as in
+the triblock thin-film study cited above.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Conclusions}
+\label{sec_conclusions}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+Numerical SCFT has been used to study the complex morphologies
+present in phase-separated block copolymer systems. We presented
+an efficient algorithm using a combination of a pseudo-spectral
+algorithm for solving a modified diffusion equation and
+parallelization that enables faster and larger simulations. This
+capability allows investigation of systems where many length
+scales are needed to fully describe the morphology. A mixture of
+$ABA$ triblock and $A$ homopolymer is used to benchmark the SCFT
+algorithm and demonstrate the ability to simultaneously resolve
+both microphase and macrophase separation. The micellar regimes in
+the $ABA$/$A$ mixture could be further studied with a complex
+Langevin scheme \cite{glenn_review_02} for sampling full,
+thermodynamic averages within SCFT.
+If one extends this type of
+study to $3d$ systems (in order to resolve the cubic, gyroid and
+bcc spherical phases), the parallel algorithm presented here will
+be even more helpful.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Acknowledgment}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+S. W. Sides is grateful to  Atofina Chemicals for financial
+support. The authors also acknowledge support from the National
+Science Foundation under Award Number DMR-98-70785 and extensive
+use of the UCSB-MRL Central Computing Facilities.
+Special thanks to Jeffery Barteet for his important role in
+building the MRL parallel computing cluster.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BIBLIOGRAPHY %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% bibtex macromolecule
+\bibliographystyle{./elsart-num}
+\bibliography{scft}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%  FIGURE 1 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure*}
+\centerline
+{
+\epsfig{figure=parallel_1.eps,angle=0,width=6in}
+}
+\caption
+{
+\label{fig_domain_decomposition}
+%(fig domain decomposition)
+Spatial domain decomposition scheme for solving the
+SCFT equations on a distributed-memory computer cluster.
+This schematic diagram shows the computational grid used to discretize
+the fields $\omega_A({\vec r})$, $\omega_B({\vec r})$,
+$\phi_A({\vec r})$, $\phi_B({\vec r})$
+as well as the functions $q({\vec r},s)$, $q^{\dagger}({\vec r},s)$.
+Each processor is assigned a ``slab'' portion of the grid, of size
+$L_x/(N_p)$ $\times$ $L_y$ $\times$ $L_z$ where $N_p$ is the
+number of processors.
+The size of the grid spacing ($dx$=$dy$=$dz$) is in units of $R_g$,
+the radius of gyration for the unperturbed Gaussian chain.
+This domain decomposition scheme is easily adapted to $2d$ and $3d$,
+any number of processors and larger systems.
+}
+\vspace{0.26cm}
+\end{figure*}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%% FIGURE 2 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure*}
+\centerline
+{
+\epsfig{figure=timing_2d.epsi,angle=270,width=6in}
+}
+\vspace{1.0cm}
+\centerline
+{
+\epsfig{figure=timing_3d.epsi,angle=270,width=6in}
+}
+\caption
+{
+\label{fig_timing}
+%(fig timing)
+CPU time $t_n$ vs.~number of processors $n$ for
+(a) 2d systems and
+(b) 3d systems.
+The time shown is the total computation and communication time
+required to solve the diffusion equation using the pseudo-spectral
+algorithm.
+This part of the SCFT calculation accounts for the majority of
+the total CPU time.
+The insets show the same timing data on a log-log plot.
+The dotted lines indicate the limit of perfect speedup and have
+slopes of $-1$.
+Note: for the largest systems, no timing data is available
+for one and two processors because the job exceeded local memory.
+}
+\vspace{0.26cm}
+\end{figure*}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%% FIGURE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure*}
+\centerline
+{
+\epsfig{figure=chi_0.10_beta_0.5.epsi,angle=270,width=6in}
+}
+\caption
+{
+\label{fig_density_aba_a_chi_0.10}
+%(fig density aba a chi 0.10)
+Density configurations of symmetric ABA triblock / A homopolymer mixtures
+for $\chi_{AB}$=$0.10$.
+White regions denote a high concentration of $A$ monomers while
+dark regions denote a high concentration of $B$ monomers.
+The chain polymerization indexes are $N_t$=$200$ and $N_h$=$100$.
+The vertical direction in each figure shows varying amounts of $A$ monomers in the
+$ABA$ triblock.
+The horizontal direction shows the volume fraction $v_h$ of monomers
+on the homopolymer chains in the system.
+Each of these simulations (i.e.~each frame) is obtained running
+the SCFT code on four processors and shows results on a $128 \times 128$
+lattice ($32 R_g \times 32 R_g$).
+}
+\vspace{0.26cm}
+\end{figure*}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%% FIGURE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure*}
+\centerline
+{
+\epsfig{figure=chi_0.16_beta_0.5.epsi,angle=270,width=6in}
+}
+\caption
+{
+\label{fig_density_aba_a_chi_0.16}
+%(fig density aba a chi 0.16)
+Density configurations of symmetric ABA triblock / A homopolymer mixtures
+for $\chi_{AB}$=$0.16$.
+The data is organized in the same way as in Fig.~\protect{\ref{fig_density_aba_a_chi_0.10}}
+Results for $f_A$=$0.30$, $v_h$=$0.20$ on a larger simulation lattice
+are shown in Fig.~\protect{\ref{fig_big}}.
+}
+\vspace{0.26cm}
+\end{figure*}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%% FIGURE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure*}
+\centerline
+{
+\epsfig{figure=a_aba_1024x1024.epsi,angle=0,width=6in}
+}
+\caption
+{
+\label{fig_big}
+%(fig big)
+Density configuration of symmetric ABA triblock / A homopolymer mixture
+for $f_A$=$0.30$, $v_h$=$0.20$ and $\chi_{AB}$=$0.16$.
+The same parameters are used in one of the simulation results
+shown in Fig.~\protect{\ref{fig_density_aba_a_chi_0.16}}
+for a smaller $128 \times 128$ lattice.
+The result shown here is for a $1024 \times 1024$ lattice
+($256 R_g \times 256 R_g$).
+}
+\vspace{0.26cm}
+\end{figure*}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\end{document}

@@ -1,0 +1,183 @@
+######################################################################
+#
+# Purpose:
+#    Show a bulk, linear ABA triblock that forms various phases
+#
+######################################################################
+
+<XSim linearTriblock>
+  shortDescription = "Linear Triblock"
+  description = "2D bulk linear ABA triblock"
+  longDescription = "Linear 2-component ABA triblock copolymer simulation in PolySwift++. Illustrates effect of extra block on phase boundaries. Also demonstrates PolySwift++ capability of tracking densities for separate blocks consisting of the same monomer species"
+  image = "linearTriblock.png"
+  thumbnail = "linearTriblockTn.png"
+</XSim>
+
+##########
+#
+# Primary variables (defined in terms of constants)
+#
+##########
+
+$ NX = 100
+$ NY = 100
+$ NZ = 1
+
+$ DX = 0.10
+$ DY = 0.10
+$ DZ = 0.10
+
+$ DS = 0.05
+
+$ fA1 = 0.20
+$ fB  = 0.60
+$ fA2 = 0.20
+
+$ chiNAB = 24.0
+$ NLEN = 100
+$ chiAB = chiNAB/float(NLEN)
+
+##########
+#
+# Exposed variables
+#
+##########
+
+<XVar NX>
+  description = "Number of cells in the x-dir"
+</XVar>
+
+<XVar NY>
+  description = "Number of cells in the y-dir"
+</XVar>
+
+<XVar NZ>
+  description = "Number of cells in the z-dir"
+</XVar>
+
+<XVar fA1>
+  description = "Length fraction of 'head A' block"
+</XVar>
+
+<XVar fB>
+  description = "Length fraction of 'B' block"
+</XVar>
+
+<XVar fA2>
+  description = "Length fraction of 'end A' block"
+</XVar>
+
+<XVar chiNAB>
+  description = "Flory chi parameter between the two chemically distinct blocks"
+</XVar>
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = 1000          # timesteps in relaxation algo.
+randomSeed = 38383     # If not set, seed uses default
+dumpPeriodicity = 50   # dump period
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+#######################################################
+# Physical "observable" fields
+#######################################################
+
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+</PhysField>
+
+<PhysField s1BlockDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField s2BlockDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  updaterSequence = [wAwB]
+
+  <Updater wAwB>
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.20 0.10]
+    noise = 0.005
+    updatefields = [totStyrDens totEthyDens]
+    interactions = [StyrEthy]
+  </Updater>
+
+  # Interactions can be separate from Any Updater/etc
+  # blocks or type of eff-Hamiltonian
+  <Interaction StyrEthy>
+    kind = flory
+    chi = chiAB
+    scfields = [totStyrDens totEthyDens]
+  </Interaction>
+
+</EffHamil>
+
+<Polymer triblock1>
+
+  kind = blockCopolymer
+  volfrac = 1.0
+  length = NLEN
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    blockfield = s1BlockDens
+    ds = DS
+    lengthfrac = fA1
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+    ds = DS
+    lengthfrac = fB
+    headjoined = [blockA]
+    tailjoined = [blockC]
+  </Block>
+
+  <Block blockC>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    blockfield = s2BlockDens
+    ds = DS
+    lengthfrac = fA2
+    headjoined = [blockB]
+    tailjoined = [freeEnd]
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+ kind = freeEnergy
+ updatePeriodicity = 10
+ updaterName = wAwB
+</History>

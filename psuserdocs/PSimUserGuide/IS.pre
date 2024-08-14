@@ -1,0 +1,299 @@
+###################################################################
+#
+# Purpose: shows example with interacting surfaces and python
+#          functions for specifying geometry
+#
+###################################################################
+
+<XSim interactingSurfaces>
+  shortDescription = "Confinement within Interacting Surfaces"
+  description = "Effects of interacting surfaces on copolymer morphologies"
+  longDescription = "Show effects of surface confinement on morphologies of an AB diblock. The top wall has neutral interactions with the monomers of the copolymer chains. The bottom structured wall interacts with the monomers on the diblock chains. The default values of the Flory chi parameters for the wall and the A/B monomers shown here favors A (majority phase) monomers wetting the bottom wall."
+  image = "interactingSurfaces.png"
+  thumbnail = "interactingSurfacesTn.png"
+</XSim>
+
+
+##########
+#
+# Primary variables (defined in terms of constants)
+#
+##########
+
+$ NX = 100
+$ NY = 50
+$ NZ = 1
+$ DX = 0.2
+$ DY = 0.2
+$ DZ = 0.2
+
+$ DS = 0.1
+
+$ fA = 0.6
+$ fB = 0.4
+
+$ chiNAB = 14.0
+
+#
+# Must be positive to be excluded
+# from walls for all parameters
+# for chiN_WA < chiN_WB the A momomers
+# are effectively attractive for the wall
+#
+$ chiNWA = 10.0
+$ chiNWB = 20.0
+
+$ NLEN = 100
+
+$ chiAB = chiNAB/float(NLEN)
+$ CHI_WALL_STYR = chiNWA/float(NLEN)
+$ CHI_WALL_ETHY = chiNWB/float(NLEN)
+
+$ SINE_AMPL = 5.0
+$ SINE_FREQ = 3.0
+
+##########
+#
+# Exposed variables
+#
+##########
+
+<XVar NX>
+  description = "Number of cells in the x-dir"
+</XVar>
+
+<XVar NY>
+  description = "Number of cells in the y-dir"
+</XVar>
+
+<XVar NZ>
+  description = "Number of cells in the z-dir"
+</XVar>
+
+<XVar fA>
+  description = "Length fraction of 'A' block"
+</XVar>
+
+<XVar fB>
+  description = "Length fraction of 'B' block"
+</XVar>
+
+<XVar chiNAB>
+  description = "Flory chi parameter between the two chemically distinct block monomers"
+</XVar>
+
+<XVar chiNWA>
+  description = "Flory chi*N parameter between the bottom wall and A momomers"
+</XVar>
+
+<XVar chiNWB>
+  description = "Flory chi*N parameter between the bottom wall and B momomers"
+</XVar>
+
+<XVar SINE_AMPL>
+  description = "Amplitude of sine function defining bottom wall"
+</XVar>
+
+<XVar SINE_FREQ>
+  description = "Frequency of sine function defining bottom wall"
+</XVar>
+
+
+##########
+#
+# Secondary variables
+#
+##########
+
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = 2000           # timesteps in relaxation algo.
+randomSeed = 12345      # If not set, seed uses default
+dumpPeriodicity = 50    # dump period
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+
+
+################################################
+# A Boundary object
+################################################
+
+# Defines left(bottom) and right(top) edges
+# of flat walls... along Y for both 2D and 3D
+# domain decomp
+$ WALLEDGE_NEGY = float(10.0)
+$ WALLEDGE_POSY = float(NY - WALLEDGE_NEGY)
+
+# Sets the hyperbolic tangent profile
+$ WIDTHPARAM = float(0.1/DX)
+
+<Boundary bottomInteractWall>
+  kind = fixedWall
+  boundaryfield = totBottomWall
+
+  <STFunc walls>
+    kind = pyfunc
+    name = lowSineWall
+    paramKeys = [ widthParam walledge amplitude freq ]
+    paramValues = [ WIDTHPARAM  WALLEDGE_NEGY SINE_AMPL SINE_FREQ ]
+  </STFunc>
+
+</Boundary>
+
+<Boundary topNeutralWall>
+  kind = fixedWall
+  boundaryfield = totTopWall
+
+  <STFunc walls>
+    kind = pyfunc
+    name = highFlatWall
+    paramKeys = [ widthParam walledge ]
+    paramValues = [ WIDTHPARAM  WALLEDGE_POSY ]
+  </STFunc>
+
+</Boundary>
+
+# These physical fields represent density regions (walls)
+<PhysField totTopWall>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField totBottomWall>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+##########################################
+
+################################################
+# End of Boundary objects
+################################################
+
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  updaterSequence = [wAwB]
+
+  <Updater wAwB>
+
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.20 0.10]
+    noise = 0.02
+
+    updatefields = [totStyrDens totEthyDens]
+    interactions = [StyrEthy EthyBottomWall StyrBottomWall EthyTopWall StyrTopWall]
+    constraints = [EthyBottomWall StyrBottomWall EthyTopWall StyrTopWall]
+
+  </Updater>
+
+  <Interaction StyrEthy>
+    kind = flory
+    chi = chiAB
+    scfields = [totStyrDens totEthyDens]
+  </Interaction>
+
+
+  ###################################
+  # Bottom wall interaction blocks
+  ###################################
+  <Interaction EthyBottomWall>
+    kind = floryWall
+    chi = CHI_WALL_ETHY
+    scfields = [totBottomWall totEthyDens]
+    wallField = totBottomWall
+  </Interaction>
+
+  <Interaction StyrBottomWall>
+    kind = floryWall
+    chi = CHI_WALL_STYR
+    scfields = [totBottomWall totStyrDens]
+    wallField = totBottomWall
+  </Interaction>
+
+  ###################################
+  # Top wall interaction blocks
+  # These are hardwired to be equal
+  # and therefore effectively neutral
+  ###################################
+  <Interaction EthyTopWall>
+    kind = floryWall
+    chi = 0.20
+    scfields = [totTopWall totEthyDens]
+    wallField = totTopWall
+  </Interaction>
+
+  <Interaction StyrTopWall>
+    kind = floryWall
+    chi = 0.20
+    scfields = [totTopWall totStyrDens]
+    wallField = totTopWall
+  </Interaction>
+
+</EffHamil>
+
+
+#######################################################
+# Physical "observable" fields
+#######################################################
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+</PhysField>
+
+
+#########################################################################
+#  A Polymer primarily describes chain architecture...namely
+#  a collection of <Block>s (eg homopolymer, diblock, triblock,
+#  n-arm star, n-arm branched etc).
+#########################################################################
+<Polymer diblock1>
+
+  kind = blockCopolymer
+  volfrac = 1.0
+  length = NLEN
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    ds = DS
+    lengthfrac = fA
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+    ds = DS
+    lengthfrac = fB
+    headjoined = [blockA]
+    tailjoined = [freeEnd]
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+  kind = freeEnergy
+  updaterName = wAwB
+</History>

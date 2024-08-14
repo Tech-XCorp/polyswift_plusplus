@@ -1,0 +1,24 @@
+.. PSim Docs Set master file.
+   This file must at least contain the root `toctree` directive.
+
+PSim Documentation Set
+===============================
+
+There are four manuals that comprise the PSim documentation set.
+
+.. toctree::
+   :maxdepth: 2
+
+   PSimExamples/PSimExamples.rst
+   PSimInstallation/PSimInstallation.rst
+   PSimUserGuide/PSimUSerGuide.rst
+   PSimReferenceManual/PSimReferenceManual.rst 
+
+These manuals are also distributed with PSim in PDF form for your convenience.
+
+
+Indices and tables
+================================================================
+
+* :ref:`genindex`
+* :ref:`search`

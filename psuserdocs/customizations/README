@@ -1,0 +1,6 @@
+
+Please do not remove the customizations directory from Sphinx even
+if the directory is empty.  In addition to holding default images,
+the customizations directory is the default directory that Sphinx
+looks for to determine whether any custom files are available.
+

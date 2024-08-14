@@ -1,0 +1,280 @@
+###################################################################
+#
+# Purpose:
+#   Morphology of a AB diblock on multi-resolution grid
+#
+###################################################################
+
+<XSim chompstAMR>
+  shortDescription = "Multi-Resolution Grid"
+  description = "Linear diblock simulation on multi-resolution grid."
+  longDescription = "Example of SCFT simulation using the Chompst solivers. Asymmetric HEX forming linear diblock chains are simulated on a grid with coarse and fine resolution grids. The fine grid running along one of the simulation directions has a refinement ratio of two."
+  image = "chompstAMR.png"
+  thumbnail = "chompstAMRTn.png"
+</XSim>
+
+##########
+#
+# Primary variables (defined in terms of constants)
+#
+##########
+$ NX = 64
+$ NY = 64
+$ NZ = 8
+
+$ fA = 0.7
+$ fB = 0.3
+
+##########
+#
+# Exposed variables
+#
+##########
+
+<XVar NX>
+  description = "Number of cells in the x-dir"
+</XVar>
+
+<XVar NY>
+  description = "Number of cells in the y-dir"
+</XVar>
+
+<XVar NZ>
+  description = "Number of cells in the z-dir"
+</XVar>
+
+<XVar fA>
+  description = "Length fraction of 'A' block"
+</XVar>
+
+<XVar fB>
+  description = "Length fraction of 'B' block"
+</XVar>
+
+############################
+# The parallel comm object
+############################
+<Comm defaultComm>
+  kind = mpiComm
+  printdebug = 'off'
+</Comm>
+
+####################################################
+# The decompositions
+
+# this is not needed for chompst AMR and refactor
+# needs to put decomp in only uni-cart-grid
+# or intermediate class
+####################################################
+<Decomp slabDecomp>
+  kind = fftw
+  periodicDirs = [0 1 2]
+  printdebug = 'off'
+</Decomp>
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = 600              # timesteps in relaxation algo.
+dumpPeriodicity = 20       # dump period
+
+nsteps = 2              # timesteps in relaxation algo.
+dumpPeriodicity = 1       # dump period
+
+randomSeed = 38383       # If not set, seed uses default
+printdebug = 'off'
+
+defaultGrid = amrGrid
+##########################################################
+
+$ RRATIO = 2
+$ DENOM_1 = NX
+$ DENOM_2 = RRATIO*NX
+$ cLX = 6.4
+$ cLY = 6.4
+$ cLZ = 0.8
+
+<Grid amrGrid>
+
+  kind = chomboGrid
+  decomp = slabDecomp # fake
+  printdebug = 'off'
+
+  # petsc_args = "-ksp_type preonly -pc_type lu -pc_factor_mat_solver_package superlu"
+  # petsc_args = "-ksp_type preonly -pc_type lu -pc_factor_mat_solver_package superlu -mat_superlu_dist_colperm NATURAL"
+  petsc_args = "-ksp_type preonly -ksp_type gmres -pc_type mg"
+  # petsc_args = "-pc_factor_mat_solver_package superlu_dist -mat_superlu_dist_colperm MMD_AT_PLUS_A -mat_superlu_dist_equil"
+  # petsc_args = "-pc_factor_mat_solver_package superlu -mat_superlu_colperm MMD_AT_PLUS_A -mat_superlu_equil"
+
+  numCellsGlobal   = [NX NY NZ] # n_cells
+  refinement_ratio = RRATIO
+  domain_length    = [cLX cLY cLZ]
+  origin           = [0.0 0.0 0.0]
+  domain_periodic_dir = [true true true]
+
+  #
+  # denom needs to be vector to be general
+  # 
+  <Level level0>
+
+    index = 0
+    # Has to be NX=NY=NZ
+    denom = DENOM_1
+
+    <Box box0>
+      lo = [0, 0, 0]
+      hi = [NX, NX, NX]
+    </Box box0>
+
+  </Level level0>
+
+  <Level level1>
+
+    index = 1
+    denom = DENOM_2
+
+    <Box box0>
+      lo = [20, 0,  0]
+      hi = [46, 128, 128]
+    </Box box0>
+
+  </Level level1>
+
+  <BC lowXface>
+    index = 0
+    lo     = [ 0.0 0.0 0.0 ]
+    hi     = [ 0.0 cLY cLZ ] # related to domain_length
+    coeffs = [ 1.0 0.0 0.0 ]
+  </BC lowXface>
+
+  <BC highXface>
+    index = 1
+    lo     = [ cLX 0.0 0.0 ]
+    hi     = [ cLX cLY cLZ ] # related to domain_length
+    coeffs = [ 1.0 0.0 0.0 ]
+  </BC lowXface>
+
+  <BC lowYface>
+    index = 2
+    lo     = [ 0.0 0.0 0.0 ]
+    hi     = [ cLX 0.0 cLZ ] # related to domain_length
+    coeffs = [ 1.0 0.0 0.0 ]
+  </BC lowYface>
+
+  <BC highYface>
+    index = 3
+    lo     = [ 0.0 cL 0.0 ]
+    hi     = [ cLX cLY cLZ ] # related to domain_length
+    coeffs = [ 1.0 0.0 0.0 ]
+  </BC lowYface>
+
+  <BC lowZface>
+    index = 4
+    lo     = [ 0.0 0.0 0.0 ]
+    hi     = [ cLX cLY 0.0  ] # related to domain_length
+    coeffs = [ 1.0 0.0 0.0 ]
+  </BC lowZface>
+
+  <BC highZface>
+    index = 5
+    lo     = [ 0.0 0.0 cLZ ]
+    hi     = [ cLX cLY cLZ ] # related to domain_length
+    coeffs = [ 1.0 0.0 0.0 ]
+  </BC lowZface>
+
+</Grid>
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#   (for now) the update methods
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  updaterSequence = [wAwB]
+  
+  <Updater wAwB>
+
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.20 0.10]
+    noise = 0.005
+    printdebug = 'off'
+
+    # Two-component updates
+    updatefields = [totStyrDens totEthyDens]
+    interactions = [StyrEthy]
+
+  </Updater>
+
+  # Interactions can be separate from Any Updater/etc
+  # blocks or type of EffHami
+  <Interaction StyrEthy>
+    kind = flory
+    chi = 0.16
+    scfields = [totStyrDens totEthyDens]
+  </Interaction>
+
+</EffHamil>
+
+#######################################################
+# Physical observable fields
+#######################################################
+
+<PhysField totStyrDens>
+  kind = chomboMonomerDens
+#  type = fieldD3R
+  type = chomboD3R
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = chomboMonomerDens
+#  type = fieldD3R
+  type = chomboD3R
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = chomboConstraint
+  type = chomboD3R
+</PhysField>
+
+#########################################################################
+#  A Polymer primarily describes chain architecture...namely
+#  a collection of <Block>s (eg homopolymer, diblock, triblock,
+#  n-arm star, n-arm branched etc).
+#
+#  The length of the "first" polymer listed will be used to
+#  to scale the theory
+#########################################################################
+<Polymer diblock1>
+
+  kind = blockCopolymer
+  volfrac = 1.0
+  length = 100
+
+  <Block blockA>
+    printdebug = 'off'
+    kind = flexChomboSplit
+    operatortype = laplaceOp
+    mixingfactor = 0.5
+    scfield = totStyrDens
+    ds = 0.05
+    lengthfrac = fA
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+  </Block>
+
+  <Block blockB>
+    printdebug = 'off'
+    kind = flexChomboSplit
+    operatortype = laplaceOp
+    mixingfactor = 0.5
+    scfield = totEthyDens
+    ds = 0.05
+    lengthfrac = fB
+    headjoined = [blockA]
+    tailjoined = [freeEnd]
+  </Block>
+
+</Polymer>

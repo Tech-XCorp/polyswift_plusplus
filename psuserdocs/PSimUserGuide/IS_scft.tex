@@ -1,0 +1,561 @@
+%%\documentclass[onecolumn,preprint,showpacs,preprintnumbers,amsmath,amssymb,floatfix]{elsart}
+\documentclass[onecolumn,amsmath,amssymb,floatfix]{elsart}
+
+\usepackage{epsfig}
+
+
+\begin{document}
+
+%\DeclareGraphicsExtensions{.pdf}
+\DeclareGraphicsExtensions{.jpg}
+
+% Elsevier change
+\begin{frontmatter}
+
+
+\title
+{
+Numerical self-consistent field theory
+simulations of confined polydisperse block copolymers.
+}
+
+% Elsevier change
+% \date{\today}
+
+% Elsevier change, author list
+
+\author{Scott W. Sides\corauthref{cor}},
+\ead{swsides@txcorp.com}
+\author{Rajeev Kumar}
+
+\corauth[cor]{Corresponding author}
+
+
+
+% Elsevier change
+\address
+{
+Oak Ridge National Labs (ORNL) Oak Ridge, TN \\
+Tech-X Corporation Boulder, CO 80303
+}
+
+
+\begin{abstract}
+
+An efficient algorithm is presented for numerically evaluating a
+self-consistent field theoretic (SCFT) model of block copolymer
+structure.
+A method is outlined for performing simulations of confined polymer
+systems for arbitrary spatial configurations.
+This algorithm is implemented on a distributed memory
+parallel cluster in order to solve the SCFT equations on large
+computational grids.
+Simulation results are presented for an $AB$ diblock
+copolymer in various confinement geometries.
+
+
+\end{abstract}
+
+\begin{keyword}
+block copolymer \sep self-consistent field theory \sep polymer melts \sep parallel computing
+\PACS 61.25.Hq \sep 61.43.Bn \sep 64.75.+g \sep 64.60.Cn \sep 64.70.Nd
+\end{keyword}
+
+% Elsevier change
+% \pacs
+% {
+% 61.25.Hq, 61.43.Bn, 64.75.+g, 64.60.Cn, 64.70.Nd
+% }
+
+% 61.25.Hq  Macromolecular and polymer solutions; polymer melts; swelling
+% 61.43.Bn Structural modeling: serial-addition models, computer simulation
+% 64.75.+g Solubility, segregation, and mixing; phase separation
+% 64.60.Cn Order-isorder transformations; statistical mechanics of model systems
+% 64.70.Nd Structural transitions in nanoscale materials
+
+% Elsevier change
+% \maketitle
+
+
+% Elsevier change
+\end{frontmatter}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+\label{sec_intro}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+%
+ \begin{eqnarray}
+ % Elsevier change XXX ALL \cal GONE
+ H =
+  \frac{1}{4 R_{{\rm g}0}^2 } \sum^{n}_{\alpha = 1}
+           \int_0^1 ds \left ( \frac{ d {\vec r}_{\alpha}(s)}{ds} \right )^{2} 
+ \nonumber
+ & + & \rho_0^{-1} \int d{\vec r} \ \chi_{AB} \ {\hat \rho_A}({\vec r}) {\hat \rho_B}({\vec r}) \\
+ & + & \rho_0^{-1} \int d{\vec r} \ \chi_{WA} \    \varrho_W ({\vec r}) {\hat \rho_A}({\vec r}) \\
+ \nonumber
+ & + & \rho_0^{-1} \int d{\vec r} \ \chi_{WB} \    \varrho_W ({\vec r}) {\hat \rho_B}({\vec r})  .
+ \end{eqnarray}
+%
+The first term in $H$ is the free-energy contribution from
+the so-called ``Gaussian thread'' \cite{doi_book} model.
+This term can be
+derived as the continuous limit of a chain model consisting of
+coarse-grained, spherical beads connected by harmonic springs,
+where $R_{{\rm g}0}$ is the radius of gyration for the unperturbed
+Gaussian chain, $n$ is the number of chains and ${\vec
+r}_{\alpha}(s)$ is a space curve parameterized by the chain
+contour variable $s$ which describes the configuration of the
+$\alpha^{th}$ chain.
+The second term is obtained from a Flory-type
+model of the interaction energy between chemically distinct
+monomer species $A$ and $B$, which is parameterized by $\chi_{AB}$.
+The last two terms are also obtained from a Flory-type
+model of the interaction energy between the $A$/$B$ monomer species
+and the particles in the wall and is parameterized by $\chi_{WA}$/$\chi_{WB}$
+respectively.
+The total density for chain monomers is $\rho_0$=$n N/V$, where $N$ is the
+polymerization index and $V$ is the volume containing a finite amount
+of polymer chains (this will be made explicit below).
+
+{\bf
+The positions of each wall-monomer can in principle be
+described explicitly with a function ${\hat \varrho_W} ({\vec r})$,
+as are the monomers within the diblock chains.
+However, this is unnecessary because these particles
+are forced to be stationary and therefore the entropy due
+to the wall-particles does not contribute to the total partition function.
+The particle density inside the wall is assumed to be sufficiently large,
+such that the continuous density field $\varrho_W ({\vec r})$ is an appropriate
+description of the interactions between particles in the wall and monomers
+along the polymer chains.
+}
+
+For these simulations $\chi_{AB} > 0$, indicating an overall repulsive force between
+dissimilar monomers which drives phase separation.
+The wall interaction parameters $\chi_{WA}$ and $\chi_{WB}$ determine the 
+a tendency for the polymer chains to either wet or be excluded from the confining surface.
+{\bf 
+The relative sizes of the $\chi$ parameters determine the effective attraction
+or replusion for a monomer species to a wall species.
+For example, if $\chi_{WA} < \chi_{WB}$ then $A$ monomers preferentially wet the
+surface wall. If $\chi_{WB} < \chi_{WA}$ then $B$ monomers preferentially wet the
+surface wall and if $\chi_{WB}$=$\chi_{WA}$ then the wall if effectively neutral.
+The absolute sizes of $\chi_{WA}$, $\chi_{WB}$.... determine how strongly the monomers
+are excluded from the confinement walls.
+}
+
+Note that while
+$\chi$ is known experimentally to depend on temperature, there is
+no such explicit dependence in the present theoretical
+formulation.
+The predictions for the mesoscopic structure of the
+block copolymer systems studied in this paper are for particular values of
+$\chi$, which depend not only on the specific interactions between
+chemical species $A$ and $B$, between $A$/$B$ monomers and the wall,
+but on the temperature as well.
+
+The $A$/$B$ monomer density operators and the wall density function are
+%
+ \begin{eqnarray}
+ {\hat \rho_A}({\vec r})
+     & = & N \sum^{n}_{\alpha = 1}
+           \int_0^f ds \ \delta({\vec r} - {\vec r}_{\alpha}(s)) \\
+ {\hat \rho_B}({\vec r})
+     & = & N \sum^{n}_{\alpha = 1}
+           \int_f^1 ds \ \delta({\vec r} - {\vec r}_{\alpha}(s)) \\
+ \varrho_W ({\vec r})
+     & \in &  [0,\rho_0] .
+ \end{eqnarray}
+%
+where $f$ is the fraction of the chain consisting of $A$ monomers
+and
+{\bf
+$\varrho_W ({\vec r})$ can
+in general be an arbitrary function of position.
+}
+
+
+The partition function for this system can be written as
+%(eqn untransformed Z)
+%
+ \begin{eqnarray}
+ \nonumber
+ \label{eqn_untransformed_Z}
+  & Z & =
+      \int \prod^{n}_{\alpha = 1} \tilde{D} {\vec r}_{\alpha} \
+      \delta[\rho_0 - \varrho_W ({\vec r}) - {\hat \rho_A} - {\hat \rho_B}] \times \\
+  \nonumber
+  & \exp &
+  \nonumber
+  \left \lbrace \rho_0^{-1} \int d{\vec r} \
+  [\chi_{AB} \ {\hat \rho_A}({\vec r}) {\hat \rho_B}({\vec r}) +
+   \chi_{WA} \    \varrho_W ({\vec r}) {\hat \rho_A}({\vec r}) +
+   \chi_{WB} \    \varrho_W ({\vec r}) {\hat \rho_B}({\vec r})
+    \right \rbrace
+ \end{eqnarray}
+%
+with
+%
+ \begin{eqnarray}
+  \tilde{D} {\vec r}_{\alpha}
+    & = &
+    D {\vec r}_{\alpha}
+      \exp \left \lbrace
+           - \frac{1}{4 R_{{\rm g}0}^2 } \int_0^1
+           ds \left ( \frac{ d {\vec r}_{\alpha}(s)}{ds} \right )^{2}
+           \right \rbrace
+ \end{eqnarray}
+where $\int D {\vec r}_\alpha$ denotes a path integral over
+all possible conformations of the $\alpha$th chain and the
+{\bf
+delta function enforces an incompressibility constraint among $A$ monomers,
+$B$ monomers and the wall such that the total monomer density is kept
+constant.
+}
+The partition function is now expressed in terms of
+monomer density operators which enumerate the positions of the
+$A$/$B$ monomers on the $n$ polymer chains.
+This expression for
+$Z$ may be converted into a field-theoretic description by a
+Hubbard-Stratonovich (HS) transformation
+by insertion of the functional integral identity
+%(eqn functional identity)
+%
+ \begin{eqnarray}
+ \label{eqn_functional_identity}
+  1
+  & = &
+  \int D[\rho] \ \delta[\rho - {\hat \rho} ] \\
+  \nonumber
+  & = &
+  \int D[\rho] D[\omega]
+    \exp
+    \left \lbrace
+     \int d{\vec r} \ i w({\vec r})
+       \left [ \rho({\vec r}) - {\hat \rho}({\vec r}) \right ]
+     \right \rbrace
+ \end{eqnarray}
+%
+where the chemical potential field $w({\vec r})$ has been introduced through
+the exponential representation of the delta functional
+$\delta[\rho - {\hat \rho} ]$.
+Using the identity in Eqn.~\ref{eqn_functional_identity} for both $A$ and $B$ density
+operators and substituting the exponential form of the incompressibility constraint
+gives
+%(eqn transformed Z)
+%(eqn free energy 1)
+%(eqn single chain Q)
+%
+ \begin{eqnarray}
+ \label{eqn_transformed_Z}
+ Z
+ & = &
+  \int D\rho_A D\rho_B D\omega_A D\omega_B Dp
+  \ e^{-\beta F}
+ \end{eqnarray}
+%
+%
+ \begin{eqnarray}
+ \label{eqn_free_energy_1}
+ \beta F
+ & = &
+  \int d{\vec r}
+   \left [ \rho_0^{-1}
+   (\chi_{AB} \rho_A \rho_B + \chi_{WA} \varrho_W \rho_A + \chi_{WB} \varrho_W \rho_B ) \right . \\
+  \nonumber
+  & - & i w_A \rho_A - i w_B \rho_B - i p (\rho_0 - \varrho_W - \rho_A - \rho_B) \left . \right ] \\
+ \nonumber
+  & - & n \ln Q[i w_A,i w_B;N]
+ \end{eqnarray}
+
+%
+with
+ \begin{eqnarray}
+ \label{eqn_single_chain_Q}
+ Q
+ & = &
+  \frac{
+  \int {\tilde D} {\vec r}_{\alpha} \
+  \exp
+  \left \lbrace
+    - \int_0^f ds \ i N w_A({\vec r}_{\alpha}(s))
+    - \int_f^1 ds \ i N w_B({\vec r}_{\alpha}(s))
+  \right \rbrace}{\int {\tilde D} {\vec r}_{\alpha}}
+ \end{eqnarray}
+%
+The field $p$ is a ``pressure field'' introduced to enforce
+incompressibility and $Q$ is the single-chain partition function
+which is a functional of the chemical potential fields $w_A$,
+$w_B$ and a function of the chain length $N$.
+The explicit ${\vec r}$ dependence is ignored for brevity and ``ideal gas'' terms of
+order $\ln V$ have been dropped as they merely add a constant
+shift in the free-energy.
+The equation for $Q$ is analogous to the
+Feynman-Kac formula in the path-integral description of quantum
+mechanics \cite{feynman_hibbs65_book} and may be expressed as
+%(eqn Q)
+%
+ \begin{eqnarray}
+ \label{eqn_Q}
+  Q & = &
+   V^{-1} \int d{\vec r} \ q({\vec r},1)
+ \end{eqnarray}
+%
+where $q({\vec r},s)$ is a restricted chain partition function that
+may be calculated as the solution to the modified diffusion equation
+%(eqn diffusion for q)
+%
+ \begin{eqnarray}
+ \label{eqn_diffusion_for_q}
+  \frac{\partial q}{\partial s}
+   & = &
+   \left \{ \begin{array}{cc}
+    R_{{\rm g}0}^2 \nabla^2 q({\vec r},s) - i N w_A q({\vec r},s),
+    & 0 < s < f \\
+    \\
+    R_{{\rm g}0}^2 \nabla^2 q({\vec r},s) - i N w_B q({\vec r},s),
+    & f < s < 1
+   \end{array} \right .
+ \end{eqnarray}
+%
+subject to the initial condition $q({\vec r},0)$=$1$.
+The HS transformation has allowed the discrete density operators ${\hat \rho}$
+to be replaced by the ``smeared out'' density fields $\rho$
+and permits the chain-chain interactions present in
+Eqn.~\ref{eqn_untransformed_Z} to be reformulated in terms of a {\it single} chain
+interacting with the chemical potential fields $w_A$ and $w_B$.
+
+
+However, the functional integrals in Eqn.~\ref{eqn_transformed_Z} are still
+analytically intractable, so a numerical simulation is required.
+Here, we consider a mean-field approximation where the full
+partition function is approximated by its value when the fields
+attain their ``saddle-point'' values.
+For field-theoretic polymer models such
+as the one presented here, it is known that \cite{glenn_review_02}
+the equilibrium saddle-points are located along the imaginary axis in
+the complex-$w$ plane. 
+Hence, the following fields may be rescaled
+as $\omega_A$=$i N w_A$, $\omega_B$=$i N w_B$, and $p$  =$i N p$
+with $\omega_A$, $\omega_B$ and $p$ purely real.
+The simulation results for all density configurations in the phase-separated
+block copolymer systems will be presented in terms of the
+dimensionless monomer volume fraction $\phi_i$=$\rho_i / \rho_0$ for each species $i$.
+{\bf
+Typically for bulk systems, the free-energy is rescaled by
+$N/\rho_0 V$ and shifted so that $F-F_0$=$0$ for $\omega_i$=$0$
+(where $F_0$ is the free-energy of the disordered phase).
+For a general $\varrho_W({\vec r})$ it is difficult to analytically determine
+what the disordered phase would be and so it is left out of the current
+derivation. This only has consequences for measuring the free-energy of
+the phase segregated state and therefore the disordered free energy will
+be estimated numerically and removed from any diagnostics within the simulation.
+}
+This gives the free-energy per chain as
+%(eqn free energy shifted)
+%
+ \begin{eqnarray}
+ {\tilde F}
+ \nonumber
+ & = &
+  V^{-1} \int d{\vec r}
+   \left [
+     \chi_{AB} N \phi_A) \phi_B
+   + \chi_{WA} N \phi_W \phi_A
+   + \chi_{WB} N \phi_W \phi_B \right . \\
+  & - &
+  \omega_A \phi_A - \omega_B \phi_B - p(1 - \phi_W - \phi_A - \phi_B) \left . \right ]
+    - \ln Q[\omega_A,\omega_B]
+ \end{eqnarray}
+%
+
+%
+where $\bar{\phi_A}$ [$\bar{\phi_B}$] is the average
+volume fraction of the $A$[$B$] species respectively
+
+The value of
+the fields [$\phi_A$,$\phi_B$,$\omega_A$,$\omega_B$,$p$] at the
+saddle-point satisfy the following set of equations
+%(eqn self consistent set 1-5)
+%
+ \begin{eqnarray}
+   \label{eqn_self_consistent_set_1}
+   \omega_A({\vec r}) =
+   \chi_{AB} N \ \phi_B({\vec r}) + p({\vec r}) + \chi_{WA} N \phi_W({\vec r})
+ \end{eqnarray}
+%
+ \begin{eqnarray}
+   \label{eqn_self_consistent_set_2}
+   \omega_B({\vec r}) = 
+   \chi_{AB} N \ \phi_A({\vec r}) + p({\vec r}) + \chi_{WB} N \phi_W({\vec r})
+ \end{eqnarray}
+%
+ \begin{eqnarray}
+   \label{eqn_self_consistent_set_3}
+   \phi_A({\vec r}) + \phi_B({\vec r}) = 1 - \phi_W({\vec r})
+ \end{eqnarray}
+%
+ \begin{eqnarray}
+   \label{eqn_self_consistent_set_4}
+   \phi_A({\vec r}) = - \frac{V}{Q} \frac{\delta Q}{\delta \omega_A}
+ \end{eqnarray}
+%
+ \begin{eqnarray}
+   \label{eqn_self_consistent_set_5}
+   \phi_B({\vec r}) = - \frac{V}{Q} \frac{\delta Q}{\delta \omega_B} .
+ \end{eqnarray}
+%
+with
+ \begin{eqnarray}
+  V = \int d{\vec r} \left [ 1 - \phi_W({\vec r}) \right ]
+ \end{eqnarray}
+
+\pagebreak
+
+
+Using a well-known factorization of the single-chain path integral
+\cite{freed72,feynman_hibbs65_book,helfand74} the functional derivatives in
+Eqns.~\ref{eqn_self_consistent_set_4} and \ref{eqn_self_consistent_set_5}
+may be rewritten, resulting in the following expressions for the $A$ and $B$
+monomer density fractions
+%(eqn density A)
+%(eqn density B)
+%
+ \begin{eqnarray}
+   \label{eqn_density_A}
+   \phi_A({\vec r})
+   & = &
+   \frac{1}{Q} \int_0^f ds \ q({\vec r},s) \ q^\dagger({\vec r},s) \\
+   \label{eqn_density_B}
+   \phi_B({\vec r})
+   & = &
+   \frac{1}{Q} \int_f^1 ds \ q({\vec r},s) \ q^\dagger({\vec r},s)
+ \end{eqnarray}
+%
+where the solution to the restricted partition function $q^\dagger$,
+may be calculated as the solution to a modified diffusion equation similar
+to Eqn.~\ref{eqn_diffusion_for_q} subject to the initial condition
+$q^\dagger({\vec r},1)$=$1$ \cite{matsen_schick94}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Numerical SCFT Algorithm}
+\label{sec_scft_algorithm}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Calculating saddle-points}
+\label{subsec_saddle_points}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+Equations \ref{eqn_self_consistent_set_1} -
+\ref{eqn_self_consistent_set_5} must be solved self-consistently
+to determine the saddle-point configurations of the fields
+[$\phi_A$,$\phi_B$,$\omega_A$,$\omega_B$,$p$].
+We want to devise
+an iterative procedure whereby the fields may be relaxed towards
+their saddle-point values.
+Since one is concerned only with the
+equilibrium values for the fields, the intermediate field values
+are not required to describe any sort of realistic dynamics during
+the relaxation algorithm.
+Hence, the chemical potential fields
+$\omega_A$, $\omega_B$ may be treated as the relevant dynamical
+variables with the changes in the $\phi_A$,$\phi_B$ and $p$ fields
+treated as fast modes and, at each relaxation step, slaved to the
+values of the chemical potentials.
+Following the work of Drolet and Fredrickson \cite{drolet99,glenn_review_02} we
+employ a ``model A'' type relaxation dynamics
+\cite{halperin_rev77} for finding the saddle-point configurations of the fields.
+This results in the following expressions for updating the chemical potential
+fields from relaxation step $n$ to $n+1$
+%
+ \begin{eqnarray}
+ \label{eq_relaxation_scheme_2}
+   \omega_A^{n+1} - \omega_A^{n}
+   & = &
+    \lambda^{'} \frac{\delta {\tilde F}}{\delta \phi_B^n} +
+    \lambda     \frac{\delta {\tilde F}}{\delta \phi_A^n} \\
+%   \omega_A^{n+1} - \omega_A^{n}
+   & = &
+   \nonumber
+    \lambda^{'} \left [ \chi_{AB} N \phi_A^n +
+                        \chi_{WB} N \phi_W - \omega_B^n + p^n  \right ] \\
+   \nonumber
+   & + &
+    \lambda     \left [ \chi_{AB} N \phi_B^n +
+                        \chi_{WA} N \phi_W - \omega_A^n + p^n \right ]
+ \end{eqnarray}
+%
+ \begin{eqnarray}
+ \label{eq_relaxation_scheme_3}
+   \omega_B^{n+1} - \omega_B^{n}
+   & = &
+    \lambda         \frac{\delta {\tilde F}}{\delta \phi_B^n} +
+    \lambda^{'}     \frac{\delta {\tilde F}}{\delta \phi_A^n} \\
+%   \omega_B^{n+1} - \omega_B^{n}
+   & = &
+   \nonumber
+    \lambda     \left [ \chi_{AB} N (\phi_A^n - \bar{\phi}_A) +
+                        \chi_{WB} N \phi_W - \omega_B^n + p^n  \right ] \\
+   \nonumber
+   & + &
+    \lambda^{'} \left [ \chi_{AB} N (\phi_B^n - \bar{\phi}_B) +
+                        \chi_{WA} N \phi_W - \omega_A^n + p^n \right ]
+ \end{eqnarray}
+%
+where the relaxation parameters are chosen such that
+$\lambda^{'} < \lambda$ and $\lambda > 0$
+and the quantities $\phi_A^n$, $\phi_B^n$
+are calculated as functionals of $\omega_A^n$, $\omega_B^n$
+using Eqns.~\ref{eqn_density_A}, \ref{eqn_density_B}.
+The relaxation scheme for calculating the saddle-point values for the fields
+is implemented through the following steps;
+%
+ \begin{enumerate}
+  \item  random initial values are set for $\omega_A$, $\omega_B$ and $p$
+  \item  the modified diffusion equations are solved
+         numerically to calculate $q({\vec r},s)$ and $q^\dagger({\vec r},s)$,
+  \item  these functions are substituted into Eqns.~\ref{eqn_density_A},
+         \ref{eqn_density_B} to obtain $\phi_A^n$, $\phi_B^n$,
+  \item  the expressions in Eqns.~\ref{eq_relaxation_scheme_2}, \ref{eq_relaxation_scheme_3}
+         are used to update the
+         chemical potential fields at the $n$-th iteration, $\omega^{n}$,
+         to their values at the $(n+1)$-th iteration, $\omega^{n+1}$,
+  \item  the pressure field is updated using the expression
+         \begin{eqnarray}
+           p^{n+1} = \frac{1}{2} 
+                      \left [ \omega^{n+1}_A + \omega^{n+1}_B +
+                      (\chi_{AB}-\chi_{WA}-\chi_{WB}) N \phi_W \right ]
+	 \end{eqnarray}
+ \end{enumerate}
+After updating the pressure field, its spatial average
+$V^{-1} \int p({\vec r}) \ d{\vec r}$ is subtracted so as
+to improve the algorithm's stability.
+This has no effect on the equilibrium structure of the chains as the thermodynamic
+properties are invariant to a constant shift in the pressure field.
+With the new fields $\omega_A$, $\omega_B$ and $p$ the procedure returns
+to step $2$ and is repeated until the saddle-point configurations are found.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\section{Acknowledgment}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BIBLIOGRAPHY %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% bibtex macromolecule
+\bibliographystyle{./elsart-num}
+\bibliography{confine}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\end{document}

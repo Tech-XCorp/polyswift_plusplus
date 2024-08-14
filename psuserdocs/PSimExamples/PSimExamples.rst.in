@@ -1,0 +1,43 @@
+.. PSim by Example master file.  This must contain the root
+   `toctree` directive.
+.. $Id: PSimExamples.rst.in 1464 2012-11-14 05:54:34Z swsides $
+
+PSim Examples
+=============================
+
+.. _psexamplesTop:
+
+.. toctree::
+   :maxdepth: 1
+
+   Introduction/psexamplesIntro.rst
+   Introduction/polyswiftComposerIntro.rst
+
+PSimBase Examples
+--------------------
+
+The PSimBase examples can be executed with a PSimBase license.
+They demonstrate the basic block copolymer SCFT simulations for
+bulk systems.
+
+.. toctree::
+   :maxdepth: 2
+
+${PSIMBASE_RST_FILES}
+
+PSimPlus Examples
+------------------
+
+The PSimPlus examples illustrate how to simulate block copolymer
+mixtures with boundaries (eg confinement, surfaces) and nanoparticles
+Their execution requires a PSimPlus license.
+
+.. toctree::
+   :maxdepth: 2
+
+${PSIMPLUS_RST_FILES}
+
+.. Trademark
+
+.. include:: Trademark/trademark.rst
+

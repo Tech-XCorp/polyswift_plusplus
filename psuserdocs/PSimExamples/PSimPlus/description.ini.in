@@ -1,0 +1,4 @@
+# $Id: description.ini 1030 2012-10-10 19:17:07Z swsides $
+examplesOrder = @PSIM_PLUS_EXAMPLES@
+shortDescription = "PSimPlus: Advanced examples"
+description = "These examples show how to use the advanced features. All of these can be executed with only a PSimPlus license. Refer to documentation for these examples by going to the 'Help' tab on the left"

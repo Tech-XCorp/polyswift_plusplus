@@ -1,0 +1,183 @@
+######################################################################
+#
+# Purpose:
+#    Show bulk, linear diblock that forms various phases
+#
+######################################################################
+
+<XSim linearDiblock>
+  shortDescription = "Linear Diblock"
+  description = "2D bulk linear AB diblock"
+  longDescription = "Linear 2-component copolymer simulation in PolySwift++. Shown below is the pseudocolor plot for the monomer density fraction of one of the copolymer blocks."
+  image = "linearDiblock1.png"
+  thumbnail = "linearDiblockTn.png"
+  analyzers = [psDumpHistory.py]
+</XSim>
+
+
+##########
+#
+# Primary variables (defined in terms of constants)
+#
+##########
+
+$ NX = 100
+$ NY = 100
+$ NZ = 1
+
+$ DX = 0.10
+$ DY = 0.10
+$ DZ = 0.10
+
+$ DS = 0.05
+
+$ fA = 0.5
+$ fB = 0.5
+
+$ noise_strength = 0.005
+$ lambda1 = 0.20
+$ lambda2 = lambda1 * 0.50
+$ randomSeed = 123
+
+$ chiNAB = 12.0
+$ NLEN = 100.0
+$ chiAB = chiNAB/NLEN
+
+
+##########
+#
+# Exposed variables
+#
+##########
+
+<XVar NX>
+  description = "Number of cells in the x-dir"
+</XVar>
+
+<XVar NY>
+  description = "Number of cells in the y-dir"
+</XVar>
+
+<XVar fA>
+  description = "Length fraction of 'A' block"
+</XVar>
+
+<XVar fB>
+  description = "Length fraction of 'B' block"
+</XVar>
+
+<XVar chiNAB>
+  description = "Flory chi parameter between the two chemically distinct block"
+</XVar>
+
+<XVar DS>
+  description = "Chain contour step size"
+</XVar>
+
+<XVar randomSeed>
+  description = "Integer seed that sets the random number generator"
+  default=38221
+</XVar>
+
+<XVar noise_strength>
+  description = "Strength factor for noise term in steepest descent relaxation"
+</XVar>
+
+<XVar lambda1>
+  description = "Size of the first mixing factor for the steepest descent algorithm"
+</XVar>
+
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = 500           # timesteps in relaxation algo.
+dumpPeriodicity = 100  # dump period
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+
+
+#######################################################
+# Physical observable fields
+#######################################################
+
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+</PhysField>
+
+
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  updaterSequence = [wAwB]
+
+  <Updater wAwB>
+
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [lambda1 lambda2]
+    noise = noise_strength
+    updatefields = [totStyrDens totEthyDens]
+    interactions = [StyrEthy]
+
+  </Updater>
+
+  <Interaction StyrEthy>
+    kind = flory
+    chi = chiAB
+    scfields = [totStyrDens totEthyDens]
+  </Interaction>
+
+</EffHamil>
+
+
+
+<Polymer diblock1>
+
+  kind = blockCopolymer
+  volfrac = 1.0
+  length = 100
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    ds = DS
+    lengthfrac = fA
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+    ds = DS
+    lengthfrac = fB
+    headjoined = [blockA]
+    tailjoined = [freeEnd]
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+  kind = freeEnergy
+  updaterName = wAwB
+</History>

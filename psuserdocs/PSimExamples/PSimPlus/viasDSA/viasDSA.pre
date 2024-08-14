@@ -1,0 +1,225 @@
+###################################################################
+#
+# Purpose:
+#    (Experimental): DSA example
+#
+###################################################################
+
+<XSim viasDSA>
+  shortDescription = "Directed Self-Assembly (DSA)"
+  description = "Directed Self-Assembly (DSA) in an array of via holes"
+  longDescription = "Directed Self-Assembly (DSA) example. Raw guide pattern data is processed and transformed into a format suitable for calculation in the PolySwift++ engine. NOTE: this example is preliminary and is using mask data with a fixed resolution and should be reviewed and refined"
+  image = "viasDSA.png"
+  thumbnail = "viasDSATn.png"
+  # -------------------------------------------------------
+  # Pre-processing scripts (DO NOT remove these listings)
+  # -------------------------------------------------------
+  # editGeometry.py
+  # smoothingForDSA.py
+</XSim>
+
+###################################
+#  Grid parameters                #
+#    Num-cells in sim  [NX NY NZ] #
+#    Cell length in Rg [DX DY DZ] #
+###################################
+
+# NX and NY are not 101 as in orignal geometry file
+
+$ NX = 100
+$ NY = 100
+$ NZ = 1
+
+$ dr = 0.15
+$ DX = dr
+$ DY = dr
+$ DZ = dr
+
+$ fA = 0.70
+$ fB = 0.30
+
+$ chiNAB = 18.0
+$ NLEN = 100
+$ chiAB = chiNAB/float(NLEN)
+$ maskFileName = viasDSA_filteredMask.dat
+
+##########
+#
+# Exposed variables
+#
+##########
+
+<XVar fA>
+  description = "Length fraction of 'A' block"
+</XVar>
+
+<XVar fB>
+  description = "Length fraction of 'B' block"
+</XVar>
+
+<XVar chiNAB>
+  description = "Flory :math:`\chi N` parameter between the two chemically distinct blocks"
+</XVar>
+
+<XVar maskFileName>
+  description = "Name of file with pre-processed/formatted mask confinement data"
+</XVar>
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = 600            # timesteps in relaxation algo.
+randomSeed = 12345      # If not set, seed uses default
+dumpPeriodicity = 50    # dump period
+printdebug = off        # Switch for certain debug msgs
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+#######################################################
+# Physical "observable" fields
+#######################################################
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+  excludefields = [totStyrDens totEthyDens]
+  preconditionFactor = 2.0
+  printdebug = DBPHYSFIELD
+</PhysField>
+
+################################################
+# A Boundary object
+################################################
+
+<Boundary softEthyWalls>
+  kind = fixedWall
+  # Assuming that PhysFields for a constraint field is
+  # automatically held
+  printdebug = DBBNDRY
+  boundaryfield = totWall
+  dataFileName = maskFileName
+</Boundary>
+
+##########################################
+# These physical fields represent density
+# regions (walls)
+
+<PhysField totWall>
+  kind = monomerDens
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+</PhysField>
+##########################################
+
+################################################
+# End of Boundary objects
+################################################
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#   (for now) the update methods
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  printdebug = DBEFFHAMIL
+
+  updaterSequence = [wAwB]
+
+  <Updater wAwB>
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.10 0.05]
+    noise = 0.02
+    printdebug = DBUPDATER
+
+    # Two-component updates
+    updatefields = [totStyrDens totEthyDens ]
+    interactions = [StyrEthy EthyWall StyrWall]
+    constraints = [ EthyWall StyrWall ]
+
+  </Updater>
+
+  # Interactions can be separate from Any Updater/etc
+  # blocks or type of eff-Hamiltonian
+  <Interaction StyrEthy>
+    kind = flory
+    chi = chiAB
+    scfields = [totStyrDens totEthyDens]
+    printdebug = DBINTERACTION
+  </Interaction>
+
+  <Interaction EthyWall>
+    kind = floryWall
+    chi = 0.30
+    scfields = [totWall totEthyDens]
+    wallField = totWall
+    printdebug = DBINTERACTION
+  </Interaction>
+
+  <Interaction StyrWall>
+    kind = floryWall
+    chi = 0.02
+    scfields = [totWall totStyrDens]
+    wallField = totWall
+    printdebug = DBINTERACTION
+  </Interaction>
+
+</EffHamil>
+
+#########################################################################
+#  A Polymer primarily describes chain architecture...namely
+#  a collection of <Block>s (eg homopolymer, diblock, triblock,
+#  n-arm star, n-arm branched etc).
+#
+#  The length of the 1st polymer listed will be used to scale lengths
+#  in the theory
+#########################################################################
+<Polymer diblock1>
+
+  kind = blockCopolymer
+  volfrac = 1.0
+  length = 100
+  printdebug = DBPOLYMER
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    ds = 0.025
+    lengthfrac = fA
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+    printdebug = DBBLOCK
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+    ds = 0.025
+    lengthfrac = fB
+    headjoined = [blockA]
+    tailjoined = [freeEnd]
+    printdebug = DBBLOCK
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+ kind = freeEnergy
+ updatePeriodicity = 10
+ updaterName = wAwB
+</History>

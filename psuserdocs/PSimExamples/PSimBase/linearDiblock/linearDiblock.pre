@@ -1,0 +1,182 @@
+######################################################################
+#
+# Purpose:
+#   "Linear Diblock (Tutorial available)"
+#
+######################################################################
+
+<XSim linearDiblock>
+  shortDescription = "Linear Diblock (Tutorial available)"
+  description = "Bulk linear AB diblock (See the 'Help' tab in the left-hand panel and click on **PSim In Depth**, **Tutorials**, **Linear Diblock Tutorial** for more details"
+  longDescription = "Linear 2-component copolymer simulation in PolySwift++. Shown below is the pseudocolor plot for the monomer density fraction of one of the copolymer blocks. Refer to the 'Linear Diblock Simulation Tutorial' in the documentation (go to the 'Help' tab on the left then go to PSim In Depth ---> Tutorials ---> Linear Diblock Tutorial**)"
+  image = "linearDiblock.png"
+  thumbnail = "linearDiblockTn.png"
+</XSim>
+
+##########
+#
+# Primary variables (defined in terms of constants)
+#
+##########
+
+$ NX = 64
+$ NY = 64
+$ NZ = 1
+
+$ dr = 0.10
+$ DX = dr
+$ DY = dr
+$ DZ = dr
+
+$ DS = 0.05
+
+$ fA = 0.5
+$ fB = 0.5
+
+$ noise_strength = 0.025
+$ lambda1 = 0.30
+$ lambda2 = lambda1 * 0.50
+$ random_seed = 122
+
+$ chiNAB = 12.0
+$ NLEN = 100
+$ chiAB = chiNAB/float(NLEN)
+
+##########
+#
+# Exposed variables
+#
+##########
+
+<XVar NX>
+  description = "Number of cells in the x-dir"
+</XVar>
+
+<XVar NY>
+  description = "Number of cells in the y-dir"
+</XVar>
+
+<XVar NZ>
+  description = "Number of cells in the z-dir"
+</XVar>
+
+<XVar dr>
+  description = "Grid cell size in the x-y-z-directions"
+</XVar>
+
+<XVar fA>
+  description = "Length fraction of 'A' block"
+</XVar>
+
+<XVar fB>
+  description = "Length fraction of 'B' block"
+</XVar>
+
+<XVar chiNAB>
+  description = "Flory :math:`\chi N` parameter between the two chemically distinct blocks"
+</XVar>
+
+<XVar DS>
+  description = "Chain contour step size"
+</XVar>
+
+<XVar random_seed>
+  description = "Integer seed that sets the random number generator"
+</XVar>
+
+<XVar noise_strength>
+  description = "Strength factor for noise term in steepest descent relaxation"
+</XVar>
+
+<XVar lambda1>
+  description = "Size of the first mixing factor for the steepest descent algorithm"
+</XVar>
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = 500          # timesteps in relaxation algorithm
+dumpPeriodicity = 20  # dump period
+randomSeed = random_seed
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+#######################################################
+# Physical observable fields
+#######################################################
+
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+</PhysField>
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  updaterSequence = [wAwB]
+
+  <Updater wAwB>
+
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [lambda1 lambda2]
+    noise = noise_strength
+    updatefields = [totStyrDens totEthyDens]
+    interactions = [StyrEthy]
+
+  </Updater>
+
+  <Interaction StyrEthy>
+    kind = flory
+    chi = chiAB
+    scfields = [totStyrDens totEthyDens]
+  </Interaction>
+
+</EffHamil>
+
+<Polymer diblock1>
+
+  kind = blockCopolymer
+  volfrac = 1.0
+  length = NLEN
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    ds = DS
+    lengthfrac = fA
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+    ds = DS
+    lengthfrac = fB
+    headjoined = [blockA]
+    tailjoined = [freeEnd]
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+  kind = freeEnergy
+  updaterName = wAwB
+</History>

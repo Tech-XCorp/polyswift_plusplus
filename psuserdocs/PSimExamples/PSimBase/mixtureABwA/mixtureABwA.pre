@@ -1,0 +1,197 @@
+######################################################################
+#
+# Purpose:
+#    Show a bulk, linear diblock mixed w/homopolymer
+#
+######################################################################
+
+<XSim mixtureABwA>
+  shortDescription = "Diblock+Homopolymer Mixture"
+  description = "Mixture of AB diblock and A homopolymer chains."
+  longDescription = "Mixture of AB diblock and A homopolymer chains. The effect of a small amount of homopolymer chains is shown below. Change the volume fraction of homopolymer chains to see the 'A' lamellar layers swell as the 'A' homopolymer chains are segregated into the 'A' layers of the phase segregated diblock domains."
+  image = "mixtureABwA.png"
+  thumbnail = "mixtureABwATn.png"
+</XSim>
+
+##########
+#
+# Primary variables (defined in terms of constants)
+#
+##########
+
+$ NX = 128
+$ NY = 128
+$ NZ = 1
+
+$ dr = 0.1
+$ DX = dr
+$ DY = dr
+$ DZ = dr
+
+$ DS = 0.10
+
+$ fA = 0.5
+$ fB = 0.5
+
+$ NLEN_AB = 100
+$ NLEN_A  = 100
+
+$ VF_AB = 0.95
+$ VF_A  = 0.05
+
+$ chiNAB = 12.0
+$ chiAB = chiNAB/float(NLEN_AB)
+
+##########
+#
+# Exposed variables
+#
+##########
+
+<XVar NX>
+  description = "Number of cells in the x-dir"
+</XVar>
+
+<XVar NY>
+  description = "Number of cells in the y-dir"
+</XVar>
+
+<XVar NZ>
+  description = "Number of cells in the z-dir"
+</XVar>
+
+<XVar fA>
+  description = "Length fraction of 'A' block"
+</XVar>
+
+<XVar fB>
+  description = "Length fraction of 'B' block"
+</XVar>
+
+<XVar chiNAB>
+  description = "Flory chi*N parameter between the two chemically distinct blocks"
+</XVar>
+
+<XVar VF_AB>
+  description = "Volume fraction of diblock chains"
+</XVar>
+
+<XVar VF_A>
+  description = "Volume fraction of homopolymer chains"
+</XVar>
+
+<XVar NLEN_AB>
+  description = "Length of diblock chains"
+</XVar>
+
+<XVar NLEN_A>
+  description = "Length of homopolymer chains"
+</XVar>
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = 200           # timesteps in relaxation algorithm
+dumpPeriodicity = 10   # dump period
+randomSeed = 125
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+#######################################################
+# Physical observable fields
+#######################################################
+
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+  initOption = sineXInitPos
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+  initOption = sineXInitNeg
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+</PhysField>
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  updaterSequence = [wAwB]
+
+  <Updater wAwB>
+
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.20 0.10]
+    noise = 0.005
+    updatefields = [totStyrDens totEthyDens]
+    interactions = [StyrEthy]
+
+  </Updater>
+
+  <Interaction StyrEthy>
+    kind = flory
+    scfields = [totStyrDens totEthyDens]
+    chi = chiAB
+  </Interaction>
+
+</EffHamil>
+
+<Polymer diblockAB>
+
+  kind = blockCopolymer
+  volfrac = VF_AB
+  length = NLEN_AB
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    ds = DS
+    lengthfrac = fA
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+    ds = DS
+    lengthfrac = fB
+    headjoined = [blockA]
+    tailjoined = [freeEnd]
+  </Block>
+
+</Polymer>
+
+<Polymer homopolymerA>
+
+  kind = blockCopolymer
+  volfrac = VF_A
+  length = NLEN_A
+
+  <Block blockHomoA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    ds = DS
+    lengthfrac = 1.0
+    headjoined = [freeEnd]
+    tailjoined = [freeEnd]
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+  kind = freeEnergy
+  updaterName = wAwB
+</History>
