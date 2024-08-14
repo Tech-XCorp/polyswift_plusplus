@@ -1,5 +1,6 @@
 # polyswift_plusplus
 Recently open-sourced PolySwift++ source code. A self-consistent field theory code for simulating block copolymer structure
+written by Dr. Scott W. Sides while at Tech-X Corporation
 
 PolySwift++ enables researchers to model complex block copolymer mixtures at the
 mesoscopic level critical to many nanoscience applications. PolySwift++ provides a flexible
