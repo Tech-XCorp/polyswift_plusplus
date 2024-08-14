@@ -1,0 +1,211 @@
+####################################################################
+#
+# Purpose:
+#    Use chi STFuncs to help compare RPA value for order-disorder
+#    transition to numerical SCFT result
+#
+######################################################################
+
+<XSim estimateRPA>
+  shortDescription = "Estimate RPA transition"
+  description = "Estimate random-phase approximation result (RPA) result for order-disorder transition"
+  longDescription = "Compare RPA value for order-disorder transition to numerical SCFT result. Change rate of change of Flory chi parameter for different run names. The value of chiN for which the system transitions from the disordered state asymptotically approaches the RPA result. <p> runNumber 1 --> chi rate = 0.000015 <p> runNumber 2 --> chi rate = 0.00001 <p> runNumber 3 --> chi rate = 0.000005 <p> runNumber 4 --> chi rate = 0.000001 </p>"
+  image = "estimateRPA.png"
+  thumbnail = "estimateRPATn.png"
+  analyzers = [psPlotHistoryRPA.py]
+</XSim>
+
+##########
+#
+# Primary variables (defined in terms of constants)
+#
+##########
+
+$ NX = 32
+$ NY = 32
+$ NZ = 1
+$ DX = 0.10
+$ DY = 0.10
+$ DZ = 0.10
+
+$ fA = 0.5
+$ fB = 0.5
+
+$ noise_strength = 0.001
+$ runNumber = 1
+
+##########
+#
+# Exposed variables
+#
+##########
+
+<XVar fA>
+  description = "Length fraction of 'A' block"
+</XVar>
+
+<XVar fB>
+  description = "Length fraction of 'B' block"
+</XVar>
+
+<XVar noise_strength>
+  description = "Strength factor for noise term in steepest descent relaxation"
+</XVar>
+
+<XVar runNumber>
+  description = "Index for selecting history data label and chi sweep rate"
+  default="run1"
+</XVar>
+
+# #########################################
+# Choose history suffix for dataset and
+# rate-of-change of chi parameter.
+#
+# If other runs added, histSuffix must
+# start with 'run'
+# #########################################
+
+$ if runNumber == 1
+  $ dchi = 0.000015
+  $ histSuffix = "run1"
+$ endif
+
+$ if runNumber == 2
+  $ dchi = 0.00001
+  $ histSuffix = "run2"
+$ endif
+
+$ if runNumber == 3
+  $ dchi = 0.000005
+  $ histSuffix = "run3"
+$ endif
+
+$ if runNumber < 1
+  $ dchi = 0.000001
+  $ histSuffix = "run4"
+$ endif
+
+$ if runNumber > 3
+  $ dchi = 0.000001
+  $ histSuffix = "run4"
+$ endif
+
+##########
+#
+# Secondary variables (defined in terms of other variables)
+#
+##########
+
+$ invNn = 0.01
+$ chi_odt = 10.498 * invNn
+$ nsteps0 = 2000
+$ delChi = nsteps0 * dchi * 0.5
+$ chiLow = chi_odt - delChi
+$ chiHigh = 0.115
+$ nstepsN = int((chiHigh - chiLow)/dchi)
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = nstepsN       # timesteps in relaxation algo.
+randomSeed = 38383     # If not set, seed uses default
+dumpPeriodicity = 100  # dump period
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#   (for now) the update methods
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  updaterSequence = [wAwB]
+
+  <Updater wAwB>
+
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.20 0.10]
+    noise = noise_strength
+    updatefields = [totStyrDens totEthyDens]
+    interactions = [StyrEthy]
+
+  </Updater>
+
+  <Interaction StyrEthy>
+    kind = flory
+    scfields = [totStyrDens totEthyDens]
+
+    <STFunc chiramp>
+      kind = chiCutExpression
+      chi_lower = 0.08
+      chi_upper = chiHigh
+      chi = chiLow + dchi*t
+    </STFunc>
+
+  </Interaction>
+
+</EffHamil>
+
+#######################################################
+# Physical observable fields
+#######################################################
+
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+</PhysField>
+
+<Polymer diblock1>
+
+  kind = blockCopolymer
+  volfrac = 1.0
+  length = 100
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    ds = 0.05
+    lengthfrac = fA
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+    ds = 0.05
+    lengthfrac = fB
+    headjoined = [blockA]
+    tailjoined = [freeEnd]
+  </Block>
+
+</Polymer>
+
+$ fEStr  = "fE"
+$ fE_name = fEStr _ histSuffix
+<History fE_name>
+  kind = freeEnergy
+  updaterName = wAwB
+</History>
+
+$ chiNStr  = "chiN"
+$ chiN_name = chiNStr _ histSuffix
+<History chiN_name>
+ kind = floryConstChi
+ interactionName = StyrEthy
+</History>

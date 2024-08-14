@@ -1,0 +1,175 @@
+####################################################################
+#
+# Purpose:
+#    Use chi STFuncs to implement a zone annealing technique
+#    to remove topological defects in the SCFT relaxation
+#
+####################################################################
+
+<XSim zoneAnneal>
+  shortDescription = "Zone Annealing"
+  description = "Zone-annealing (ZA) technique for removing topological defects."
+  longDescription = "The steepest-descent algorithm can lead to simulations results that represent metastable or weakly unstable states.   Many of these non-equilibrium morphologies are due to the presence of topological defects. In a lamellar (LAM) phase these defects can manifest as layer dislocations. This example shows how to implement a zone-annealing technique that can aid in rapidly removing these defects."
+  image = "zoneAnneal.png"
+  thumbnail = "zoneAnnealTn.png"
+</XSim>
+
+##########
+#
+# Primary variables (defined in terms of constants)
+#
+##########
+
+$ NX = 100
+$ NY = 100
+$ NZ = 1
+$ DX = 0.20
+$ DY = 0.20
+$ DZ = 0.20
+$ DS = 0.05
+
+$ zoneVelocity = 0.10
+$ sizeZone = 5.0
+$ edgeWidth = 4.0
+$ sweepsMax = 2
+
+$ xzoneBuffer = float(NX*1.2)
+$ yzoneBuffer = float(NY*1.2)
+
+##########
+#
+# Exposed variables
+#
+##########
+
+<XVar NX>
+  description = "Number of cells in the x-dir"
+</XVar>
+
+<XVar NY>
+  description = "Number of cells in the y-dir"
+</XVar>
+
+<XVar NZ>
+  description = "Number of cells in the z-dir"
+</XVar>
+
+<XVar zoneVelocity>
+  description = "Velocity of center of zone"
+</XVar>
+
+<XVar sizeZone>
+  description = "Number of grid cells across width of moving zone"
+</XVar>
+
+<XVar edgeWidth>
+  description = "Controls width of zone edges"
+</XVar>
+
+<XVar sweepsMax>
+  description = "Number of sweeps before zone is turned off"
+</XVar>
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = 4000           # timesteps in relaxation algo.
+randomSeed = 12345      # If not set, seed uses default
+dumpPeriodicity = 100   # dump period
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+#######################################################
+# Physical "observable" fields
+#######################################################
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+</PhysField>
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#   (for now) the update methods
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  updaterSequence = [wAwB]
+
+  <Updater wAwB>
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.20 0.10]
+    noise = 0.05
+
+    # Two-component updates
+    updatefields = [totStyrDens totEthyDens ]
+    interactions = [StyrEthy]
+
+  </Updater>
+
+  # Interactions can be separate from Any Updater/etc
+  # blocks or type of eff-Hamiltonian
+  <Interaction StyrEthy>
+
+    kind = flory
+    scfields = [totStyrDens totEthyDens]
+
+    <STFunc chirzoneY>
+      kind = switchMovTanhSlab
+      widthParam = edgeWidth
+      zoneSize = sizeZone
+      chiNmax = 8.0
+      chiNmin = 20.0
+      zoneBuffers = [ xzoneBuffer yzoneBuffer ]
+      expression = -80.0 + zoneVelocity*t
+      maxSweeps = sweepsMax
+    </STFunc>
+
+  </Interaction>
+
+</EffHamil>
+
+<Polymer diblock1>
+
+  kind = blockCopolymer
+  volfrac = 1.0
+  length = 100
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    ds = DS
+    lengthfrac = 0.70
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+    ds = DS
+    lengthfrac = 0.30
+    headjoined = [blockA]
+    tailjoined = [freeEnd]
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+ kind = freeEnergy
+ updaterName = wAwB
+</History>

@@ -1,0 +1,3 @@
+# Custom Pre/Post-Testing Commands for CTesting
+set(CTEST_CUSTOM_PRE_TEST "@CMAKE_COMMAND@ -DSUMMARIZE_RESULT_FILE:STRING=@Polyswift_RESULT_FILE_NAME@.tmp -DFAILED_TEST_FILE:STRING=./Testing/Temporary/LastTestsFailed.log -P @SCIMAKE_DIR@/SciCTestSummarizeClean.cmake")
+set(CTEST_CUSTOM_POST_TEST "@CMAKE_COMMAND@ -DSUMMARIZE_RESULT_FILE:STRING=@Polyswift_RESULT_FILE_NAME@ -DFAILED_TEST_FILE:STRING=./Testing/Temporary/LastTestsFailed.log -DSUMMARIZE_FAILLOG_FILE:STRING=./Testing/Temporary/FailedTests.log -P @SCIMAKE_DIR@/SciCTestSummarize.cmake")

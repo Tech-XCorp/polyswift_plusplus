@@ -1,0 +1,242 @@
+######################################################################
+#
+# File:         polyswift.pre
+#
+# Purpose:      Mays PS-PI block-copolymers
+#
+######################################################################
+
+#$ FracS = 0.70
+#$ FracIso1 = 0.15
+#$ FracIso2 = 0.15
+#$ DS_S = 0.02
+#$ DS_I = 0.01
+# $ FracS = 0.68
+# $ FracIso1 = 0.16
+# $ FracIso2 = 0.16
+# $ DS_S = 0.02
+# $ DS_I = 0.016
+
+$ FracS = 0.74
+$ FracIso1 = 0.13
+$ FracIso2 = 0.13
+$ DS_S = 0.02
+$ DS_I = 0.01
+
+# $ chiIS = 0.541
+$ chiIS = 0.300
+
+$ TSTEPS  = 10000
+$ ENDTIME = TSTEPS - 1000
+
+########################
+#   Grid parameters    #
+########################
+$ NX = LSIZE
+$ NY = LSIZE
+$ NZ = LSIZE
+
+$ DX = 0.10
+$ DY = 0.10
+$ DZ = 0.10
+
+############################
+#     Debug print flags    #
+############################
+$ DBUPDATER     = "'off'"
+$ DBINTERACTION = "'off'"
+$ DBEFFHAMIL    = "'off'"
+$ DBPOLYMER     = "'off'"
+$ DBBLOCK       = "'off'"
+$ DBPHYSFIELD   = "'off'"
+
+##########################################################
+#            Domain parameters and defaults              #
+#                                                        #
+# Import of defaults.pre contains block descriptions     #
+# for singleton, mandatory, default blocks               #
+# (these are same for all current sims)                  #
+##########################################################
+
+nsteps = TSTEPS         # timesteps in relaxation algo.
+randomSeed = 21383      # If not set, seed uses default
+dumpPeriodicity = 2000  # dump period
+prtPeriodicity = 100    # prt status period
+printdebug = off        # Switch for certain debug msgs
+
+$ import defaults.pre
+##########################################################
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#   (for now) the update methods
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  printdebug = DBEFFHAMIL
+  updaterSequence = [wAwB simpleFilter]
+
+  <Updater wAwB>
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.05 0.025]
+#    relaxlambdas = [0.10 0.05]
+    noise = 0.005
+    printdebug = DBUPDATER
+    updatefields = [totStyrDens totIsoDens]
+    interactions = [StyrIso]
+  </Updater>
+
+  <Updater simpleFilter>
+    kind = multiSpecFilter
+    printdebug = DBUPDATER
+    applyFrequency = 500
+    applyStart = 1000
+    applyEnd = ENDTIME
+    updatefields = [totStyrDens totIsoDens]
+    cutoffFactor = CUTOFFVALUE
+    filterStrength = 0.0
+#    specCellSizes = [8 8 8]
+    specCellSizes = [4 4 4]
+
+  </Updater>
+
+  # Interactions can be separate from Any Updater/etc
+  # blocks or type of eff-Hamiltonian
+  <Interaction StyrIso>
+    kind = flory
+    scfields = [totStyrDens totIsoDens]
+    printdebug = DBINTERACTION
+    chi = chiIS
+#    $ CHIRATE = 2.4e-6
+
+    <Off STFunc chiramp>
+      kind = cutExpression
+      lowerVal = 0.1652
+      upperVal = chiIS
+      # This will add to the default chi above
+      expression = 0.1652 + CHIRATE*t
+    </Off STFunc>
+
+  </Interaction>
+
+</EffHamil>
+
+#######################################################
+# Physical "observable" fields
+#   Ability to define density of only certain blocks
+#   will build/own appropriate conjugate field
+#
+#   kind --> still refers to a MakerMap lookup
+#   type --> defines rank "explcitly"
+#            For now, must specify float/double
+#            (F/D) in name
+#
+#   iotype --> For now, each PhysField *MUST* have a
+#              link to an IO object and therefore an
+#              IO object must be defined.
+#######################################################
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+  monomertype = styrene
+  printdebug = DBPHYSFIELD
+</PhysField>
+
+<PhysField totIsoDens>
+  kind = monomerDens
+  type = fieldD3R
+  monomertype = isoprene
+  printdebug = DBPHYSFIELD
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+  printdebug = PHYSFIELDDB
+</PhysField>
+
+####################################
+##  Specify "Entities"            ##
+##   - copolymers                 ##
+##   - homopolymers               ##
+##   - nanoparticles              ##
+##   - solvents                   ##
+####################################
+
+#########################################################################
+#  Below are four chains
+#  diblock1, diblock2, triblock1, 3arm-star1
+#  the volfrac = x.xx for each of these must all add to 1.0
+#
+#  For each <Polymer> the lengthfrac from each <Block> must
+#  add to 1.0 For each distinct "chemical = ' ' " listing
+#  from all <Block>s there must be a density field and chemical
+#  potential field.
+#
+#  The length of the "first" polymer listed will be used to
+#  to scale the theory
+#
+#  A Polymer primarily describes chain architecture...namely
+#  a collection of <Block>s (eg homopolymer, diblock, triblock,
+#  n-arm star, n-arm branched etc).
+#
+#  Note: generally "co"polymer refers to a chain made of >1
+#        types of monomers. here are only specified "kind = block"
+#        meaning the chains consists of continguous blocks of one
+#        type of monomer. Not implemented but possible would be
+#        "random" copolymers, "gradient" copolymers etc.
+#
+#  scfield --> Is a listing of the object to which functional
+#              derivatives of the partition function that <Polymer>
+#              (etc) make up contribute to.
+#########################################################################
+
+<Polymer miktoPSPI>
+
+  kind = blockCopolymer
+  volfrac = 1.0
+  length = 100
+  printdebug = DBPOLYMER
+
+  <Block blockS>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    ds = DS_S
+    bSegRatio = 0.9011
+    lengthfrac = FracS
+    headjoined = [freeEnd]
+    tailjoined = [blockI1 blockI2]
+    printdebug = DBBLOCK
+  </Block>
+
+  <Block blockI1>
+    kind = flexPseudoSpec
+    scfield = totIsoDens
+    ds = DS_I
+    bSegRatio = 1.0
+    lengthfrac = FracIso1
+    headjoined = [freeEnd]
+    tailjoined = [blockI2 blockS]
+    printdebug = DBBLOCK
+  </Block>
+
+  <Block blockI2>
+    kind = flexPseudoSpec
+    scfield = totIsoDens
+    ds = DS_I
+    bSegRatio = 1.0
+    lengthfrac = FracIso2
+    headjoined = [freeEnd]
+    tailjoined = [blockI1 blockS]
+    printdebug = DBBLOCK
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+  kind = freeEnergy
+  updatePeriodicity = 10
+  updaterName = wAwB
+</History>

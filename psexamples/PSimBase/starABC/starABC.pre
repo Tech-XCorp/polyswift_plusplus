@@ -1,0 +1,243 @@
+######################################################################
+#
+# Purpose:
+#    Calculate bulk, 3-arm ABC star morphologies
+#
+######################################################################
+
+<XSim starABC>
+  shortDescription = "Three-arm ABC star"
+  description = "Bulk 2D three-arm ABC star copolymer"
+  longDescription = "Three-arm star copolymer with different monomers on each arm."
+  image = "starABC.png"
+  thumbnail = "starABCTn.png"
+</XSim>
+
+##########
+#
+# Primary variables (defined in terms of constants)
+#
+##########
+
+$ NX = 64
+$ NY = 64
+$ NZ = 1
+
+$ DX = 0.1
+$ DY = 0.1
+$ DZ = 0.1
+
+$ DS = 0.05
+
+$ fA = 0.35
+$ fB = 0.30
+$ fC = 0.35
+
+$ chiRate = 0.0001
+
+$ chiN_SC = 24.0
+$ chiN_EC = 24.0
+$ chiN_SE = 24.0
+
+$ NLEN = 100
+
+$ chiSC = chiN_SC/float(NLEN)
+$ chiEC = chiN_EC/float(NLEN)
+$ chiSE = chiN_SE/float(NLEN)
+
+##########
+#
+# Exposed variables
+#
+##########
+
+<XVar NX>
+  description = "Number of cells in the x-dir"
+</XVar>
+
+<XVar NY>
+  description = "Number of cells in the y-dir"
+</XVar>
+
+<XVar NZ>
+  description = "Number of cells in the z-dir"
+</XVar>
+
+<XVar fA>
+  description = "Length fraction of A arm"
+</XVar>
+
+<XVar fB>
+  description = "Length fraction of B arm"
+</XVar>
+
+<XVar fC>
+  description = "Length fraction of C arm"
+</XVar>
+
+<XVar chiN_SC>
+  description = "Flory :math:`\chi N` parameter between the 'S' and 'C' arms"
+</XVar>
+
+<XVar chiN_EC>
+  description = "Flory :math:`\chi N` parameter between the 'E' and 'C' arms"
+</XVar>
+
+<XVar chiN_SE>
+  description = "Flory :math:`\chi N` parameter between the 'E' and 'S' arms"
+</XVar>
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = 1000           # timesteps in relaxation algo.
+randomSeed = 12345      # If not set, seed uses default
+dumpPeriodicity = 100    # dump period
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField totCarbDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+</PhysField>
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  printdebug = DBEFFHAMIL
+
+  updaterSequence = [wAwBwC]
+
+  <Updater wAwBwC>
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.20  0.10]
+    noise = 0.05
+    printdebug = DBUPDATER
+    updatefields = [totStyrDens totEthyDens totCarbDens]
+    interactions = [StyrEthy StyrCarb EthyCarb]
+  </Updater>
+
+  # Interactions can be separate from Any Updater/etc
+  # blocks or type of eff-Hamiltonian
+  <Interaction StyrEthy>
+    kind = flory
+    scfields = [totStyrDens totEthyDens]
+    printdebug = DBINTERACTION
+
+    <STFunc chiramp>
+      kind = chiCutExpression
+      chi_lower = 0.20
+      chi_upper = chiSE
+      # This will add to the default chi above
+      chi = 0.20 + chiRate*t
+    </STFunc>
+
+  </Interaction>
+
+  <Interaction EthyCarb>
+    kind = flory
+    scfields = [totEthyDens totCarbDens]
+    printdebug = DBINTERACTION
+
+    <STFunc chiramp>
+      kind = chiCutExpression
+      chi_lower = 0.18
+      chi_upper = chiEC
+      # This will add to the default chi above
+      chi = 0.20 + chiRate*t
+    </STFunc>
+
+  </Interaction>
+
+  <Interaction StyrCarb>
+    kind = flory
+    scfields = [totStyrDens totCarbDens]
+    printdebug = DBINTERACTION
+
+    <STFunc chiramp>
+      kind = chiCutExpression
+      chi_lower = 0.16
+      chi_upper = chiSC
+      chi = 0.20 + chiRate*t
+    </STFunc>
+
+  </Interaction>
+
+</EffHamil>
+
+<Polymer threeArmABC>
+
+  kind = blockCopolymer
+  volfrac = 1.0
+  length = 100
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    ds = DS
+    lengthfrac = fA
+    headjoined = [freeEnd]
+    tailjoined = [blockB blockC]
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+    ds = DS
+    lengthfrac = fB
+    headjoined = [freeEnd]
+    tailjoined = [blockA blockC]
+  </Block>
+
+  <Block blockC>
+    kind = flexPseudoSpec
+    scfield = totCarbDens
+    ds = DS
+    lengthfrac = fC
+    headjoined = [freeEnd]
+    tailjoined = [blockA blockB]
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+ kind = freeEnergy
+ updaterName = wAwBwC
+</History>
+
+<History t_chiN_SC>
+ kind = floryConstChi
+ interactionName = StyrCarb
+</History>
+
+<History t_chiN_SE>
+ kind = floryConstChi
+ interactionName = StyrEthy
+</History>
+
+<History t_chiN_EC>
+ kind = floryConstChi
+ interactionName = EthyCarb
+</History>

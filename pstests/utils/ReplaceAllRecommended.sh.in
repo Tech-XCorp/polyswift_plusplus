@@ -1,0 +1,20 @@
+#!/bin/bash
+######################################################################
+#
+# @file    ReplaceAllRecommended.sh.in
+#
+# @brief   Short script to replace all pstests which failed via their
+#          ReplaceResults targets
+#
+# @version $Id: ReplaceAllRecommended.sh.in 407 2020-04-06 19:18:36Z neri $
+#
+# Copyright &copy; 2018-2019, Tech-X Corporation, Boulder, CO.
+# All rights reserved.
+#
+######################################################################
+
+tests_to_replace=`grep "Recommend accepting" PsTestsFailed.log | sed -e 's@Test @@g' -e 's@:.*@@g'`
+
+for test in $tests_to_replace; do
+  @CMAKE_MAKE_PROGRAM@ ${test}ReplaceResults/fast
+done

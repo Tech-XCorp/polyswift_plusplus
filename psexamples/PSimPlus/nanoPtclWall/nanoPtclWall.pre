@@ -1,0 +1,333 @@
+######################################################################
+#
+# Purpose:
+#    Show how to setup a hybrid-SCFT simulation for nanoparticle
+#    copolymer composite system.
+#
+######################################################################
+
+<XSim nanoPtclWall>
+  shortDescription = "Confined Nanoparticle Composite"
+  description = "Nanoparticle copolymer mixture confined by flat surfaces"
+  longDescription = "Adjust interaction parameters between copolymer monomers and nanoparticles to investigate effects on copolymer and particle structure. The default wall interaction parameters are neutral for the copolymer chains. The panels below show the structure evolving as nanoparticles are inserted incrementally into the system."
+  image = "nanoPtclWall.png"
+  thumbnail = "nanoPtclWallTn.png"
+</XSim>
+
+##########
+#
+# Primary variables (defined in terms of constants)
+#
+##########
+
+$ NX = 160
+$ NY = 128
+$ NZ = 1
+
+$ DX = 0.05
+$ DY = 0.05
+$ DZ = 0.05
+
+$ DS = 0.05
+
+$ fA = 0.7
+$ fB = 0.3
+
+$ pRadius = 0.20 # in units of Rg
+$ pWidth  = 0.10 # in units of Rg
+
+$ chiNAB = 16.0
+
+#
+# Must be positive to be excluded
+# from walls for all parameters
+# for chiN_BP < chiN_AP the B momomers
+# are effectively attractive for the nanoparticle surface
+#
+$ chiN_AP = 25.0
+$ chiN_BP = 5.0
+
+$ NLEN = 100
+
+$ chiAB = chiNAB/float(NLEN)
+$ CHI_PTCL_STYR = chiN_AP/float(NLEN)
+$ CHI_PTCL_ETHY = chiN_BP/float(NLEN)
+
+$ maxParticles = 14
+
+##########
+#
+# Exposed variables
+#
+##########
+
+<XVar NX>
+  description = "Number of cells in the x-dir"
+</XVar>
+
+<XVar NY>
+  description = "Number of cells in the y-dir"
+</XVar>
+
+<XVar NZ>
+  description = "Number of cells in the z-dir"
+</XVar>
+
+<XVar pRadius>
+  description = "Radius of nanoparticles [units of Rg]"
+</XVar>
+
+<XVar fA>
+  description = "Length fraction of 'A' block"
+</XVar>
+
+<XVar fB>
+  description = "Length fraction of 'B' block"
+</XVar>
+
+<XVar chiNAB>
+  description = "Flory chi*N parameter between the two chemically distinct block monomers"
+</XVar>
+
+<XVar chiN_AP>
+  description = "Flory chi*N parameter between the A monomers and nanoparticle surface"
+</XVar>
+
+<XVar chiN_BP>
+  description = "Flory chi*N parameter between the B monomers and nanoparticle surface"
+</XVar>
+
+<XVar maxParticles>
+  description = "Maximum number of spherical particles to be inserted"
+</XVar>
+
+##########
+#
+# Secondary variables
+#
+##########
+
+$ PTCLRADIUS = int(pRadius/DX)
+$ PTCLWIDTH = pWidth/DX
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = 5000          # timesteps in relaxation algo.
+randomSeed = 2235       # If not set, seed uses default
+dumpPeriodicity = 200   # dump period
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+################################################
+# A Boundary object
+################################################
+
+# Defines left(bottom) and right(top) edges
+# of flat walls... along Y for both 2D and 3D
+# domain decomp
+$ WALLEDGE_NEGX = float(0.10*NX)
+$ WALLEDGE_POSX = float(NX - (0.10*NX))
+
+# Sets the hyperbolic tangent profile
+$ WIDTHPARAM = float(0.1/DX)
+
+<Boundary bottomNeutralWall>
+  kind = fixedWall
+  boundaryfield = totWall
+  bndryFieldThreshold = 0.005
+
+  <STFunc walls>
+    kind = pyfunc
+    name = bottomFlatWall
+    paramKeys = [ widthParam walledge ]
+    paramValues = [ WIDTHPARAM  WALLEDGE_NEGX ]
+  </STFunc>
+
+</Boundary>
+
+<Boundary topNeutralWall>
+  kind = fixedWall
+  boundaryfield = totWall
+  bndryFieldThreshold = 0.005
+
+  <STFunc walls>
+    kind = pyfunc
+    name = topFlatWall
+    paramKeys = [ widthParam walledge ]
+    paramValues = [ WIDTHPARAM  WALLEDGE_POSX ]
+  </STFunc>
+
+</Boundary>
+
+##########################################
+# These physical fields represent density 
+#  regions (walls)
+
+<PhysField totWall>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+##########################################
+
+################################################
+# A Nanoparticle object
+################################################
+$ LI_EDGE = float(0.4 * NX)
+$ RI_EDGE = float(NX - LI_EDGE)
+
+$ PDYNRADIUS = PTCLRADIUS + 1
+
+# Defines spherical inclusion
+<Boundary sphereParticle1>
+  kind = interactingSphere
+  fftKind = fftWObj
+  maxNumPtcls = maxParticles
+  updateMovePeriod = 100
+  updateAddPeriod = 200
+  scaleForceFactor = 1.0
+  tstepBeforeFirstAdd = 400
+  ptclNoiseFactor = 0.25
+  interfaceWidth = PTCLWIDTH
+  radius = PTCLRADIUS
+  dynradius = PDYNRADIUS
+  maxdr = 0.25
+  boundaryfield = totParticle
+
+  <STFunc insertRegion>
+    kind = pyfunc
+    name = stripeRegionsX
+    paramKeys = [ leftedge rightedge ]
+    paramValues = [ LI_EDGE  RI_EDGE ]
+  </STFunc>
+
+</Boundary>
+
+##########################################
+# This physical field represents density
+#  regions (particles)
+
+<PhysField totParticle>
+  kind = monomerDens
+  onlyFirstDump = off
+  type = fieldD3R
+</PhysField>
+################################################
+
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  updaterSequence = [wAwB]
+
+  <Updater wAwB>
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.40 0.20]
+    noise = 0.002
+    updatefields = [totStyrDens totEthyDens]
+    interactions = [StyrEthy particleEthy particleStyr wallEthy wallStyr]
+    constraints = [ particleEthy particleStyr wallEthy wallStyr]
+  </Updater>
+
+  # Interactions can be separate from Any Updater/etc
+  # blocks or type of eff-Hamiltonian
+  <Interaction StyrEthy>
+    kind = flory
+    chi = chiAB
+    scfields = [totStyrDens totEthyDens]
+  </Interaction>
+
+  # ##############################
+  #  Interactions for particles  #
+  # ##############################
+  <Interaction particleEthy>
+    kind = floryWall
+    chi = CHI_PTCL_ETHY
+    scfields = [totParticle totEthyDens]
+    wallField = totParticle
+  </Interaction>
+
+  <Interaction particleStyr>
+    kind = floryWall
+    chi = CHI_PTCL_STYR
+    scfields = [totParticle totStyrDens]
+    wallField = totParticle
+  </Interaction>
+
+  # #################################
+  #  Interactions for neutral walls #
+  # #################################
+  <Interaction wallEthy>
+    kind = floryWall
+    chi = 0.20
+    scfields = [totWall totEthyDens]
+    wallField = totWall
+  </Interaction>
+
+  <Interaction wallStyr>
+    kind = floryWall
+    chi = 0.20
+    scfields = [totWall totStyrDens]
+    wallField = totWall
+  </Interaction>
+
+</EffHamil>
+
+#######################################################
+# Physical "observable" fields
+#######################################################
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+</PhysField>
+
+#########################################################################
+#  A Polymer primarily describes chain architecture...namely
+#  a collection of Block-s (eg homopolymer, diblock, triblock,
+#  n-arm star, n-arm branched etc).
+#
+#  The length of a first polymer listed will be used to scale the theory
+#########################################################################
+<Polymer diblock1>
+
+  kind = blockCopolymer
+  volfrac = 1.0
+  length = NLEN
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    ds = DS
+    lengthfrac = fA
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+    ds = DS
+    lengthfrac = fB
+    headjoined = [blockA]
+    tailjoined = [freeEnd]
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+ kind = freeEnergy
+ updaterName = wAwB
+</History>

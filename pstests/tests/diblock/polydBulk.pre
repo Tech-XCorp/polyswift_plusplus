@@ -1,0 +1,148 @@
+######################################################################
+#
+# File:         polydBulk.pre
+#
+# Purpose:      Simple, linear 2 component polydispserse diblock
+#
+# Define variables in lines starting with '$' for later use
+######################################################################
+
+###################################
+#  Grid parameters                #
+#    Num-cells in sim  [NX NY NZ] #
+#    Cell length in Rg [DX DY DZ] #
+###################################
+$ NX = 64
+$ NY = 64
+$ NZ = 1
+$ DX = 0.10
+$ DY = 0.10
+$ DZ = 0.10
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = 200           # timesteps in relaxation algo.
+randomSeed = 38383     # If not set, seed uses default
+dumpPeriodicity = 100  # dump period
+printdebug = off       # Switch for certain debug msgs
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  updaterSequence = [wAwB]
+
+  <Updater wAwB>
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.20 0.10]
+    noise = 0.005
+    updatefields = [totStyrDens totEthyDens]
+    interactions = [StyrEthy]
+  </Updater>
+
+  <Interaction StyrEthy>
+    kind = flory
+    scfields = [totStyrDens totEthyDens]
+
+    $ zoneVelocity = 0.10
+    $ sizeZone = 4.0
+    $ edgeWidth = 4.0
+    $ sweepsMax = 3
+    $ xzoneBuffer = float(NX*1.4)
+    $ yzoneBuffer = float(NY*1.4)
+
+    <STFunc chiramp>
+      kind = chiCutExpression
+      chi_lower = 0.10
+      chi_upper = 0.14
+      chi = 0.10 + 0.0001*t
+    </STFunc>
+
+  </Interaction>
+
+</EffHamil>
+
+#######################################################
+# Physical observable fields
+#######################################################
+
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+</PhysField>
+
+################################################################
+#  A Polymer primarily describes chain architecture...namely
+#  a collection of <Block>s (eg homopolymer, diblock, triblock,
+#  n-arm star, n-arm branched etc).
+#
+#  The length of the "first" polymer listed will be used to
+#  to scale the theory
+################################################################
+
+$ NG = 4
+$ import polyDisperse
+createQuadraturePhysFields(styrDens,NG)
+createQuadraturePhysFields(ethyDens,NG)
+
+<Polymer diblock1>
+
+  kind = polyDisperseBCP
+  printdebug = 'off'
+
+  n_g = NG
+  alpha = 1.5
+  polyblock = blockB
+
+  volfrac = 1.0
+  length = 100
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    blockfield = styrDens
+    forceBlockSteps = true
+    ds = 0.02
+    lengthfrac = 0.7
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+    blockfield = ethyDens
+    ds = 0.01
+    forceBlockSteps = true
+    lengthfrac = 0.3
+    headjoined = [blockA]
+    tailjoined = [freeEnd]
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+  kind = freeEnergy
+  updaterName = wAwB
+</History>
+
+<History chiN_AB>
+ kind = floryConstChi
+ interactionName = StyrEthy
+</History>

@@ -1,0 +1,184 @@
+####################################################################
+#
+# Purpose:
+#    Spectral filter updater 
+#    to remove topological defects in the SCFT relaxation
+#
+####################################################################
+
+<XSim spectralFilter>
+  shortDescription = "Spectral Filtering"
+  description = "Spectral filtering technique for removing topological defects."
+  longDescription = "The steepest-descent alogorithm can lead to simulations results that represent metastable or weakly unstable states.   Many of these non-equilibrium morphologies are due to the presence of topological defects. This example shows how to implement a spectral filtering technique that can aid in rapidly removing these defects."
+  image = "spectralFilter.png"
+  thumbnail = "spectralFilterTn.png"
+</XSim>
+
+##########
+#
+# Primary variables (defined in terms of constants)
+#
+##########
+$ NX = 128
+$ NY = 128
+$ NZ = 1
+
+$ DX = 0.2
+$ DY = 0.2
+$ DZ = 0.2
+
+$ DS = 0.05
+
+$ fA = 0.7
+$ fB = 0.3
+
+$ chiNAB = 16.0
+$ NLEN = 100
+$ chiAB = chiNAB/float(NLEN)
+
+$ CUTOFF_STRENGTH = 0.10
+$ TSTEPS = 2000
+$ ENDSTEPS = TSTEPS - 500
+
+##########
+#
+# Exposed variables
+#
+##########
+
+<XVar NX>
+  description = "Number of cells in the x-dir"
+</XVar>
+
+<XVar NY>
+  description = "Number of cells in the y-dir"
+</XVar>
+
+<XVar NZ>
+  description = "Number of cells in the z-dir"
+</XVar>
+
+<XVar fA>
+  description = "Length fraction of 'A' block"
+</XVar>
+
+<XVar fB>
+  description = "Length fraction of 'B' block"
+</XVar>
+
+<XVar chiNAB>
+  description = "Flory chi*N parameter between the two chemically distinct block"
+</XVar>
+
+<XVar CUTOFF_STRENGTH>
+  description = "Strength of the spectral filtering"
+</XVar>
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = TSTEPS         # timesteps in relaxation algo.
+randomSeed = 12345      # If not set, seed uses default
+dumpPeriodicity = 50    # dump period
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+</PhysField>
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#   (for now) the update methods
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  updaterSequence = [wAwB specFilter]
+
+  <Updater wAwB>
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.20 0.10]
+    noise = 0.02
+    updatefields = [totStyrDens totEthyDens]
+    interactions = [StyrEthy]
+  </Updater>
+
+  <Updater specFilter>
+
+    kind = multiSpecFilter
+    fftKind = fftWObj
+
+    applyFrequency = 200
+    applyStart = 500
+    applyEnd = ENDSTEPS
+    updatefields = [totStyrDens totEthyDens]
+    cutoffFactor = CUTOFF_STRENGTH
+    specCellSizes = [4 4 1]
+
+  </Updater>
+
+  # Interactions can be separate from Any Updater/etc
+  # blocks or type of eff-Hamiltonian
+  <Interaction StyrEthy>
+    kind = flory
+    chi = chiAB
+    scfields = [totStyrDens totEthyDens]
+    printdebug = DBINTERACTION
+  </Interaction>
+
+</EffHamil>
+
+#########################################################################
+#  A Polymer primarily describes chain architecture...namely
+#  a collection of <Block>s (eg homopolymer, diblock, triblock,
+#  n-arm star, n-arm branched etc).
+#
+#  The length of the "first" polymer listed will be used to
+#  to scale the theory
+#########################################################################
+<Polymer diblock1>
+
+  kind = blockCopolymer
+  volfrac = 1.0
+  length = NLEN
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    ds = DS
+    lengthfrac = fA
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+    ds = DS
+    lengthfrac = fB
+    headjoined = [blockA]
+    tailjoined = [freeEnd]
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+  kind = freeEnergy
+  updaterName = wAwB
+</History>

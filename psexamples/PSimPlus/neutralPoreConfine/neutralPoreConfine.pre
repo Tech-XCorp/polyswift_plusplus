@@ -1,0 +1,222 @@
+###################################################################
+#
+# Purpose:
+#   Morphology of a AB diblock in cylindrical confinement
+#
+###################################################################
+
+<XSim neutralPoreConfine>
+  shortDescription = "Pore Confinement"
+  description = "Diblock chains confined in a cylindrical pore."
+  longDescription = "Show effects of confinement on morphologies of an AB diblock. The walls have neutral interactions with the monomers of the copolymer chains. 1. Change the size of the cylindrical pore to investigate effects on phase morphologies. 2. Change the size of the A and B blocks to investigate how different copolymers architectures are affected by confinement"
+  image = "neutralPoreConfine.png"
+  thumbnail = "neutralPoreConfineTn.png"
+</XSim>
+
+##########
+#
+# Primary variables (defined in terms of constants)
+#
+##########
+
+$ NX = 64
+$ NY = 64
+$ NZ = 1
+$ DX = 0.2
+$ DY = 0.2
+$ DZ = 0.2
+
+$ fA = 0.5
+$ fB = 0.5
+
+# Rule of thumb: float(NX/2 - int(0.05*NX))
+$ xs_CYLRADIUS = 28.0
+
+##########
+#
+# Exposed variables
+#
+##########
+
+<XVar NX>
+  description = "Number of cells in the x-dir"
+</XVar>
+
+<XVar NY>
+  description = "Number of cells in the y-dir"
+</XVar>
+
+<XVar NZ>
+  description = "Number of cells in the z-dir"
+</XVar>
+
+<XVar fA>
+  description = "Length fraction of 'A' block"
+</XVar>
+
+<XVar fB>
+  description = "Length fraction of 'B' block"
+</XVar>
+
+<XVar xs_CYLRADIUS>
+  description = "Size of cylinder radius (units of grid cells) [floattype]."
+</XVar>
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = 2000           # timesteps in relaxation algo.
+randomSeed = 12345      # If not set, seed uses default
+dumpPeriodicity = 100   # dump period
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+#######################################################
+# Physical "observable" fields
+#######################################################
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+  excludefields = [totStyrDens totEthyDens]
+</PhysField>
+
+################################################
+# A Boundary object
+################################################
+$ CYLCENTER_X = float(NX/2)
+$ CYLCENTER_Y = float(NY/2)
+$ if NZ == 1
+  $ CYLCENTER_Z = float(1)
+$ else
+  $ CYLCENTER_Z = float(NZ/2)
+$ endif
+
+# Sets the hyperbolic tangent profile
+$ WIDTHPARAM = 1.5
+
+<Boundary softEthyWalls>
+  kind = fixedWall
+  boundaryfield = totWall
+
+  <STFunc walls>
+    kind = pyfunc
+    name = cylinder
+    paramKeys = [ radius widthParam cylcenterX cylcenterY cylcenterZ ]
+    paramValues = [ xs_CYLRADIUS WIDTHPARAM CYLCENTER_X CYLCENTER_Y CYLCENTER_Z ]
+  </STFunc>
+
+</Boundary>
+
+##########################################
+# These physical fields represent density 
+# regions (walls)
+
+<PhysField totWall>
+  kind = monomerDens
+  type = fieldD3R
+</PhysField>
+##########################################
+
+################################################
+# End of Boundary objects
+################################################
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#   (for now) the update methods
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  updaterSequence = [wAwB]
+
+  <Updater wAwB>
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.10 0.05]
+    noise = 0.05
+
+    # Two-component updates
+    updatefields = [totStyrDens totEthyDens ]
+    interactions = [StyrEthy wallEthy wallStyr]
+    constraints = [ wallEthy wallStyr]
+  </Updater>
+
+  # Interactions can be separate from Any Updater/etc
+  # blocks or type of eff-Hamiltonian
+  <Interaction StyrEthy>
+    kind = flory
+    chi = 0.135
+    scfields = [totStyrDens totEthyDens]
+  </Interaction>
+
+  # #################################
+  #  Interactions for neutral walls #
+  # #################################
+  <Interaction wallEthy>
+    kind = floryWall
+    chi = 0.25
+    scfields = [totWall totEthyDens]
+    wallField = totWall
+  </Interaction>
+
+  <Interaction wallStyr>
+    kind = floryWall
+    chi = 0.25
+    scfields = [totWall totStyrDens]
+    wallField = totWall
+  </Interaction>
+
+</EffHamil>
+
+#########################################################################
+#  A Polymer primarily describes chain architecture...namely
+#  a collection of <Block>s (eg homopolymer, diblock, triblock,
+#  n-arm star, n-arm branched etc).
+#
+#  The length of the 1st polymer listed will be used to scale lengths
+#  in the theory
+#########################################################################
+<Polymer diblock1>
+
+  kind = blockCopolymer
+  volfrac = 1.0
+  length = 100
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    ds = 0.05
+    lengthfrac = 0.50
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+    ds = 0.05
+    lengthfrac = 0.50
+    headjoined = [blockA]
+    tailjoined = [freeEnd]
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+ kind = freeEnergy
+ updaterName = wAwB
+</History>

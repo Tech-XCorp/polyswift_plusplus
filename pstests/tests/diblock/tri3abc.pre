@@ -1,0 +1,220 @@
+######################################################################
+#
+# File:         tri3abc.pre
+#
+# Purpose:      Test for linear 3 component triblock (ABC)
+#
+# Define variables in lines starting with '$' for later use
+######################################################################
+
+###################################
+#  Grid parameters                #
+#    Num-cells in sim  [NX NY NZ] #
+#    Cell length in Rg [DX DY DZ] #
+###################################
+$ NX = 128
+$ NY = 128
+$ NZ = 1
+$ DX = 0.1
+$ DY = 0.1
+$ DZ = 0.1
+
+######################
+# Debug print flags  #
+######################
+$ DBUPDATER     = "'off'"
+$ DBINTERACTION = "'off'"
+$ DBEFFHAMIL    = "'off'"
+$ DBPOLYMER     = "'off'"
+$ DBBLOCK       = "'off'"
+$ DBPHYSFIELD   = "'off'"
+$ DBDEFAULT     = "'off'"
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = 200           # timesteps in relaxation algo.
+randomSeed = 12345      # If not set, seed uses default
+dumpPeriodicity = 100   # dump period
+printdebug = off        # Switch for certain debug msgs
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+#######################################################
+# Physical "observable" fields
+#######################################################
+
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+</PhysField>
+
+<PhysField totCarbDens>
+  kind = monomerDens
+  type = fieldD3R
+  printdebug = PHYSFIELDDB
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+  printdebug = PHYSFIELDDB
+</PhysField>
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#   (for now) the update methods
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  printdebug = DBEFFHAMIL
+
+  updaterSequence = [wAwBwC]
+
+  <Updater wAwBwC>
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.20  0.10]
+    noise = 0.05
+    printdebug = DBUPDATER
+    updatefields = [totStyrDens totEthyDens totCarbDens]
+    interactions = [StyrEthy StyrCarb EthyCarb]
+  </Updater>
+
+  # Interactions can be separate from Any Updater/etc
+  # blocks or type of eff-Hamiltonian
+  <Interaction StyrEthy>
+    kind = flory
+    scfields = [totStyrDens totEthyDens]
+    printdebug = DBINTERACTION
+
+    <STFunc chiramp>
+      kind = chiCutExpression
+      chi_lower = 0.18
+      chi_upper = 0.188
+      # This will add to the default chi above
+      chi = 0.18 + 0.000025*t
+    </STFunc>
+
+  </Interaction>
+
+  <Interaction EthyCarb>
+    kind = flory
+    scfields = [totEthyDens totCarbDens]
+    printdebug = DBINTERACTION
+
+    <STFunc chiramp>
+      kind = chiCutExpression
+      chi_lower = 0.18
+      chi_upper = 0.22
+      # This will add to the default chi above
+      chi = 0.18 + 0.00001*t
+    </STFunc>
+
+  </Interaction>
+
+  <Interaction StyrCarb>
+    kind = flory
+    scfields = [totStyrDens totCarbDens]
+    printdebug = DBINTERACTION
+
+    <STFunc chiramp>
+      kind = chiCutExpression
+      chi_lower = 0.16
+      chi_upper = 0.18
+      chi = 0.16 + 0.0001*t
+    </STFunc>
+
+  </Interaction>
+
+</EffHamil>
+
+####################################
+##  Specify "Entities"            ##
+##   - copolymers                 ##
+##   - homopolymers               ##
+##   - nanoparticles              ##
+##   - solvents                   ##
+####################################
+
+#########################################################################
+#  A Polymer primarily describes chain architecture...namely
+#  a collection of <Block>s (eg homopolymer, diblock, triblock,
+#  n-arm star, n-arm branched etc).
+#
+#  The length of the "first" polymer listed will be used to
+#  to scale the theory
+#########################################################################
+<Polymer triblock1>
+
+  kind = blockCopolymer
+  volfrac = 1.0
+  length = 100
+  printdebug = DBPOLYMER
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    ds = 0.05
+    lengthfrac = 0.35
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+    printdebug = DBBLOCK
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+    ds = 0.05
+    lengthfrac = 0.30
+    headjoined = [blockA]
+    tailjoined = [blockC]
+    printdebug = DBBLOCK
+  </Block>
+
+  <Block blockC>
+    kind = flexPseudoSpec
+    scfield = totCarbDens
+    ds = 0.05
+    lengthfrac = 0.35
+    headjoined = [blockB]
+    tailjoined = [freeEnd]
+    printdebug = DBBLOCK
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+ kind = freeEnergy
+ updatePeriodicity = 10
+ updaterName = wAwBwC
+</History>
+
+<History chiN_SC>
+ kind = floryConstChi
+ updatePeriodicity = 5
+ interactionName = StyrCarb
+</History>
+
+<History chiN_SE>
+ kind = floryConstChi
+ updatePeriodicity = 10
+ interactionName = StyrEthy
+</History>
+
+<History chiN_EC>
+ kind = floryConstChi
+ updatePeriodicity = 10
+ interactionName = EthyCarb
+</History>

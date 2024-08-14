@@ -1,0 +1,153 @@
+######################################################################
+#
+# File:         asymmetric.pre
+#
+# Purpose:      Test for linear 2 component AB diblock w/asymmetric segment lengths
+#
+# Define variables in lines starting with '$' for later use
+######################################################################
+
+###################################
+#  Grid parameters                #
+#    Num-cells in sim  [NX NY NZ] #
+#    Cell length in Rg [DX DY DZ] #
+###################################
+$ NX = 128
+$ NY = 128
+$ NZ = 1
+$ DX = 0.1
+$ DY = 0.1
+$ DZ = 0.1
+
+############################
+#    Debug print flags     #
+############################
+$ DBSTATUS0     = "'off'"
+$ DBUPDATER     = "'off'"
+$ DBINTERACTION = "'off'"
+$ DBEFFHAMIL    = "'off'"
+$ DBPOLYMER     = "'off'"
+$ DBBLOCK       = "'off'"
+$ DBPHYSFIELD   = "'off'"
+$ DBDEFAULT     = "'off'"
+
+##########################################################
+#            Domain parameters and defaults              #
+##########################################################
+
+nsteps = 300            # timesteps in relaxation algo.
+randomSeed = 38383      # If not set, seed uses default
+dumpPeriodicity = 100   # dump period
+printdebug = off        # Switch for certain debug msgs
+
+$ import pseudoSpecSetup
+setupPS(NX, NY, NZ, DX, DY, DZ, "'off'")
+##########################################################
+
+#########################################################
+# Effective Hamiltonian: defines energetic SCFT model
+#   (for now) the update methods
+#########################################################
+<EffHamil mainHamil>
+
+  kind = canonicalMF
+  printdebug = DBEFFHAMIL
+
+  updaterSequence = [wAwB]
+
+  <Updater wAwB>
+    kind = steepestDescent
+    type = incompressible
+    relaxlambdas = [0.40 0.20]
+    noise = 0.002
+    printdebug = DBUPDATER
+
+    # Two-component updates
+    updatefields = [totStyrDens totEthyDens]
+    interactions = [StyrEthy]
+
+  </Updater>
+
+  # Interactions can be separate from Any Updater/etc
+  # blocks or type of eff-Hamiltonian
+  <Interaction StyrEthy>
+    kind = flory
+#    chi = 0.14
+    chi = 0.125
+    scfields = [totStyrDens totEthyDens]
+    printdebug = DBINTERACTION
+  </Interaction>
+
+</EffHamil>
+
+#######################################################
+# Physical "observable" fields
+#######################################################
+
+<PhysField totStyrDens>
+  kind = monomerDens
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+  makeVisItDB = on
+</PhysField>
+
+<PhysField totEthyDens>
+  kind = monomerDens
+  type = fieldD3R
+  printdebug = DBPHYSFIELD
+  makeVisItDB = on
+</PhysField>
+
+<PhysField defaultPressure>
+  kind = constraint
+  type = fieldD3R
+  printdebug = PHYSFIELDDB
+  makeVisItDB = on
+</PhysField>
+
+#########################################################################
+#  A Polymer primarily describes chain architecture...namely
+#  a collection of <Block>s (eg homopolymer, asymmetric, triblock,
+#  n-arm star, n-arm branched etc).
+#
+#  The length of the "first" polymer listed will be used to
+#  to scale the theory
+#########################################################################
+<Polymer diblock1>
+
+  kind = blockCopolymer
+  volfrac = 1.0
+  length = 100
+  printdebug = DBPOLYMER
+
+  <Block blockA>
+    kind = flexPseudoSpec
+    scfield = totStyrDens
+    ds = 0.05
+#    lengthfrac = 0.65
+    lengthfrac = 0.50
+    bSegRatio = 3.16227
+    headjoined = [freeEnd]
+    tailjoined = [blockB]
+    printdebug = DBBLOCK
+  </Block>
+
+  <Block blockB>
+    kind = flexPseudoSpec
+    scfield = totEthyDens
+#    bSegRatio = 0.3162
+    ds = 0.05
+#    lengthfrac = 0.35
+    lengthfrac = 0.50
+    headjoined = [blockA]
+    tailjoined = [freeEnd]
+    printdebug = DBBLOCK
+  </Block>
+
+</Polymer>
+
+<History freeE1>
+  kind = freeEnergy
+  updatePeriodicity = 10
+  updaterName = wAwB
+</History>
